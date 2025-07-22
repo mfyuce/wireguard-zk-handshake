@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: GPL-2.0
+# Out-of-tree WireGuard module build for Linux 6.8
+
+obj-m := wireguard.o
+
+# Source files
+wireguard-y := main.o noise.o device.o peer.o timers.o \
+               queueing.o send.o receive.o socket.o \
+               peerlookup.o allowedips.o ratelimiter.o \
+               cookie.o netlink.o
+
+ccflags-y := -D'pr_fmt(fmt)=KBUILD_MODNAME ": " fmt'
+ccflags-$(CONFIG_WIREGUARD_DEBUG) += -DDEBUG
+
+KVERSION := $(shell uname -r)
+KDIR ?= /lib/modules/$(KVERSION)/build
+PWD := $(shell pwd)
+
+all:
+	$(MAKE) -C $(KDIR) M=$(PWD) modules
+
+clean:
+	$(MAKE) -C $(KDIR) M=$(PWD) clean

@@ -1,0 +1,1000 @@
+ 1000  exit
+ 1001  watch -n1 virsh list --all
+ 1002  ping 192.0.2.110
+ 1003  ssh ulak@192.0.2.110
+ 1004  ssh ulak@192.0.2.130
+ 1005  cd /opt/ulak/
+ 1006  ls
+ 1007  cat copy_config.sh 
+ 1008  watch -n1 virsh list --all
+ 1009  ping 192.0.2.110
+ 1010  ping 192.0.2.130
+ 1011  ssh ulak@192.0.2.120
+ 1012  cd aes/
+ 1013  ls
+ 1014  lsb_release 
+ 1015  lsb_release -a
+ 1016  lscpu 
+ 1017  ls
+ 1018  ls send
+ 1019  history | grep mod
+ 1020  modinfo wireguard
+ 1021  ls
+ 1022  cd send
+ 1023  cp /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko wireguard_orig.ko
+ 1024  rmmod wireguard
+ 1025  sudo rmmod wireguard
+ 1026  insmod ./
+ 1027  ls
+ 1028  ls -a
+ 1029  ls -l
+ 1030  modprobe wireguard
+ 1031  sudo modprobe wireguard
+ 1032  modinfo wireguard
+ 1033  modprobe wireguard
+ 1034  modinfo wireguard
+ 1035  lsmod wireguard
+ 1036  lsmod | grep wireguard
+ 1037  cd ..
+ 1038  ls
+ 1039  cd wireguard-mayaos/
+ 1040  ls
+ 1041  cd wireguard-5.10.55/
+ 1042  ls
+ 1043  cd selftest/
+ 1044  ls
+ 1045  cd ..
+ 1046  git status
+ 1047  cd ..
+ 1048  cd ci/
+ 1049  ls
+ 1050  cd run_mayaos/
+ 1051  ls
+ 1052  nano test_generic_single.sh 
+ 1053  nano test_generic_single.sh 25
+ 1054  ./test_generic_single.sh 5
+ 1055  sudo ./test_generic_single.sh 5
+ 1056  top
+ 1057  htop
+ 1058  nano ./test_generic.sh 
+ 1059  top
+ 1060  ps aux | grep test
+ 1061  top
+ 1062  htop
+ 1063  top
+ 1064  ps aux | grep test
+ 1065  htop
+ 1066  ls
+ 1067  cd ..
+ 1068  ls
+ 1069  c ..
+ 1070  ls
+ 1071  cd ..
+ 1072  ls
+ 1073  cd ..
+ 1074  ls
+ 1075  cd send
+ 1076  ls
+ 1077  modinfo ./wireguard_aes.ko 
+ 1078  insmod ./wireguard_aes.ko 
+ 1079  sudo insmod ./wireguard_aes.ko 
+ 1080  cp ./wireguard_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1081  sudo cp ./wireguard_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1082  modprobe wireguard
+ 1083  sudo modprobe wireguard
+ 1084  uname -a 
+ 1085  cd ..
+ 1086  ls
+ 1087  cd wireguard-mayaos/
+ 1088  ls
+ 1089  ls ci
+ 1090  git status
+ 1091  git diff ci/5.4/wireguard-linux-compat/src/messages.h
+ 1092  git stash
+ 1093  git status
+ 1094  git reset --hard
+ 1095  git checkout origin/aes_5.4 -b aes_5.4
+ 1096  git checkout  aes_5.4
+ 1097  git pull
+ 1098  ls
+ 1099  cd wireguard-5.10.55/
+ 1100  ./build_generic.sh 
+ 1101  make clean
+ 1102  ./build_generic.sh 
+ 1103  sudo cat
+ 1104  ./build_generic.sh 
+ 1105  ls
+ 1106  ls ..
+ 1107  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1108  find ./ -name '*.ko'
+ 1109  make -C ./
+ 1110  ls
+ 1111  make
+ 1112  ls
+ 1113  nano Makefile 
+ 1114  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1115  make -C ./ 
+ 1116  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1117  sudo apt-get install git fakeroot build-essential ncurses-dev xz-utils libssl-dev bc flex libelf-dev bison
+ 1118  echo /lib/modules/$(uname -r)/build
+ 1119  cd /lib/modules/5.4.0-166-generic/build
+ 1120  ls
+ 1121  find ./ -name 'wireguard*'
+ 1122  sudo find ./ -name 'wireguard*'
+ 1123  sudo find / -name 'wireguard*'
+ 1124  sudo find / -name wireguard.ko
+ 1125  ls -alt /usr/lib/modules/5.4.0-163-generic/kernel/wireguard/
+ 1126  ls -alt /usr/lib/modules/5.4.0-165-generic/kernel/wireguard/
+ 1127  ls -alt /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/
+ 1128  uname -r
+ 1129  sudo insmod /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1130  sudo modprob /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1131  sudo modprop /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1132  sudo modprobe /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1133  sudo cp  /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko /lib/modules/5.4.0-166-generic/
+ 1134  sudo modprobe wireguard.ko
+ 1135  sudo modprobe wireguard
+ 1136  sudo modinfo 
+ 1137  sudo cp  /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1138  sudo rm /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1139  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1140  sudo ls /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1141  sudo rm /lib/modules/5.4.0-166-generic/wireguard.ko
+ 1142  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1143  sudo ls /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1144  sudo ls /lib/modules/5.4.0-166-generic/kernel/wireguard/
+ 1145  sudo ls /lib/modules/5.4.0-166-generic/kernel/
+ 1146  sudo ls /lib/modules/5.4.0-166-generic/
+ 1147  ls -alt /usr/lib/modules/5.4.0-148-generic/extra/wireguard.ko
+ 1148  sudo insmod /usr/lib/modules/5.4.0-148-generic/extra/wireguard.ko
+ 1149  modprobe
+ 1150  modprobe wireguard
+ 1151  sudo cp /usr/lib/modules/5.4.0-148-generic/extra/wireguard.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1152  modprobe wireguard
+ 1153  sudo modprobe wireguard
+ 1154  vncserver --lait
+ 1155  vncserver --list
+ 1156  vncserver -list
+ 1157  vncserver list
+ 1158  vncserver kill :0
+ 1159  vncserver kill :1
+ 1160  vncserver kill :2
+ 1161  vncserver 
+ 1162  vncserver kill admin-1:0
+ 1163  vncserver kill admin-1:1
+ 1164  tail -F /home/ulak/.vnc/admin-1:7.log
+ 1165  vncpasswd
+ 1166  cat /home/ulak/.vnc/passwd
+ 1167  vncpasswd
+ 1168  modinfo wireguard
+ 1169  ls aes/run_mayao
+ 1170  ls aes/run_mayaos/
+ 1171  top
+ 1172  ps aux | grep test
+ 1173  sudo kill -9 881903 881903881903881905 881907 881909 881912 983402 
+ 1174  ps aux | grep test
+ 1175  sudo kill -9 881903 881903881903881905 881907 881909 881912 983402  881905 
+ 1176  ps aux | grep test
+ 1177  cd aes/run_mayaos/
+ 1178  ls
+ 1179  sudo ./test_generic_single.sh 2
+ 1180  cd ../run_mayaos_2/
+ 1181  sudo ./test_generic_single.sh 2
+ 1182  ls
+ 1183  cd run_mayaos/
+ 1184  sudo ./test_generic_single.sh 2
+ 1185  nano ./test_generic_single.sh
+ 1186  sudo bash -x ./test_generic_single.sh 2
+ 1187  sudo bash -x ./test_generic_single.sh 1
+ 1188  sudo bash -x ./test_generic_single.sh 3
+ 1189  sudo bash -x ./test_generic_single.sh 4
+ 1190  htop
+ 1191  nano ./test_generic_single.sh
+ 1192  nano ./test_generic.sh
+ 1193  sudo bash -x ./test_generic_single.sh 25
+ 1194  modprobe wireguardwireguard
+ 1195  modprobe wireguard
+ 1196  rmmod wireguard
+ 1197  sudo rmmod wireguard
+ 1198  sudo insmod ../../send/wireguard_aes.ko 
+ 1199  ls
+ 1200  sudo bash -x ./test_generic_single.sh 25
+ 1201  clear
+ 1202  ssh ulak@172.70.70.110
+ 1203  ls
+ 1204  cd /opt/ulak/
+ 1205  cd qcow/
+ 1206  ls
+ 1207  rm -rf maya_14112023.qcow2 
+ 1208  sudo rm -rf maya_14112023.qcow2
+ 1209  sudo cp /home/ulak/maya_15112023.qcow2 .
+ 1210  ls
+ 1211  cd ..
+ 1212  ls
+ 1213  sudo nano run_maya_vm.sh 
+ 1214  cat run_maya_vm.sh 
+ 1215  cd /home/ulak/
+ 1216  ls
+ 1217  cd /opt/ulak/
+ 1218  bash run_maya_vm.sh 
+ 1219  ls
+ 1220  bash copy_config.sh 
+ 1221  cat config.yml/
+ 1222  cat copy_config.sh 
+ 1223  ifconfig |grep 10.70.70.1
+ 1224  ifconfig |grep 172.70.70.1
+ 1225  virsh console maya2
+ 1226  ssh ulak@192.0.2.110
+ 1227  cd /opt/ulak/
+ 1228  ls
+ 1229  cat run_maya_vm.sh 
+ 1230  md5sum /opt/ulak/qcow/maya_15112023.qcow2
+ 1231  ls
+ 1232  bash run_maya_vm.sh
+ 1233  sudo us
+ 1234  sudo su
+ 1235  exit
+ 1236  sudo su
+ 1237  sudo su vcluster_manager_f
+ 1238  sudo su
+ 1239  ssh ulak@10.20.4.53
+ 1240  exit
+ 1241  ssh ulak@10.20.4.53
+ 1242  ssh ulak@10.20.4.52
+ 1243  ssh ulak@192.0.2.110
+ 1244  ssh ulak@172.10.10.241
+ 1245  ssh ulak@172.10.10.242
+ 1246  ssh ulak@172.10.10.231
+ 1247  ssh ulak@172.10.10.102
+ 1248  ssh ulak@172.70.70.110
+ 1249  ssh-keygen -f "/home/ulak/.ssh/known_hosts" -R "172.70.70.110"
+ 1250  ssh ulak@172.70.70.110
+ 1251  ping 192.0.2.130
+ 1252  ssh ulak@192.0.2.130
+ 1253  ls
+ 1254  cd /opt/ulak/
+ 1255  ls
+ 1256  cat copy_config.sh 
+ 1257  sudo nano copy_config.sh 
+ 1258  ping 192.0.2.110
+ 1259  ping 192.0.2.130
+ 1260  ssh ulak@192.0.2.110
+ 1261  ssh ulak@192.0.2.130
+ 1262  exit
+ 1263  ssh ulak@192.0.2.110
+ 1264  cd /opt/ulak/qcow/
+ 1265  ls
+ 1266  cd /opt/ulak/
+ 1267  ls
+ 1268  sudo nano copy_config.sh 
+ 1269  cd /opt/ulak/qcow/
+ 1270  ls
+ 1271  scp -r maya_15112023.qcow2 ulak@10.20.4.53:/home/ulak
+ 1272  ls
+ 1273  sudo cp -r maya_15112023.qcow2 maya_15112023-orig.qcow2 
+ 1274  sudo mv /home/ulak/maya_15112023.qcow2 .
+ 1275  ls
+ 1276  cd ..
+ 1277  ls
+ 1278  bash run_maya_vm.sh 
+ 1279  ssh ulak@192.0.2.110
+ 1280  virsh list --all
+ 1281  watch -n1virsh list --all
+ 1282  watch -n1 virsh list --all
+ 1283  ping 192.0.2.110
+ 1284  ssh ulak@192.0.2.110
+ 1285  ping 192.0.2.130
+ 1286  ssh ulak@192.0.2.130
+ 1287  ls
+ 1288  cat run_maya_vm.sh 
+ 1289  ls
+ 1290  sudo nano copy_config.sh 
+ 1291  ping 192.0.2.130
+ 1292  ssh ulak@192.0.2.130
+ 1293  ls
+ 1294  sudo nano copy_config.sh 
+ 1295  ls
+ 1296  cd qcow/
+ 1297  ls
+ 1298  sudo cp -r /home/ulak/maya_17112023.qcow2 .
+ 1299  ls
+ 1300  sudo mv maya_17112023.qcow2 maya_15112023.qcow2 
+ 1301  ls -ltr
+ 1302  cd /opt/ulak/
+ 1303  ls
+ 1304  bash run_maya_vm.sh 
+ 1305  ls
+ 1306  ssh ulak@192.0.2.110
+ 1307  ping 192.0.2.110
+ 1308  virsh console maya
+ 1309  virsh console maya1
+ 1310  ping 192.0.2.110
+ 1311  ssh ulak@192.0.2.110
+ 1312  ping 192.0.2.110
+ 1313  ping 192.0.2.130
+ 1314  ssh ulak@192.0.2.130
+ 1315  ls
+ 1316  ssh ulak@192.0.2.130
+ 1317  ping 192.0.2.110
+ 1318  ping 192.0.2.130
+ 1319  ping 192.0.2.110
+ 1320  ping 192.0.2.130
+ 1321  ssh ulak@192.0.2.130
+ 1322  ssh ulak@10.70.70.110
+ 1323  virsh console maya1
+ 1324  sudo virsh list
+ 1325  ping 172.70.70.110
+ 1326  ssh ulak@172.70.70.110
+ 1327  ssh ulak@172.10.10.240
+ 1328  ssh ulak@172.10.10.241
+ 1329  ssh ulak@172.10.10.242
+ 1330  ssh ulak@172.10.10.240
+ 1331  ping 172.70.70.110
+ 1332  exit
+ 1333  ssh ulak@172.70.70.110
+ 1334  kubectl get pods -A
+ 1335  sudo su
+ 1336  virsh list --all
+ 1337  ping 192.0.2.130
+ 1338  ssh ulak@192.0.2.130
+ 1339  virsh list --all
+ 1340  ssh ulak@192.0.2.110
+ 1341  ls
+ 1342  ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+ 1343  ssh ulak@172.70.70.130
+ 1344  ping 192.0.2.130
+ 1345  ssh ulak@192.0.2.130
+ 1346  ssh ulak@192.0.2.130
+ 1347  ssh ulak@172.70.70.120
+ 1348  ping 192.0.2.120
+ 1349  ssh ulak@192.0.2.130
+ 1350  ssh ulak@192.0.2.120
+ 1351  ssh ulak@172.70.70.110
+ 1352  cd /media/pnetlab/
+ 1353  ls
+ 1354  sudo su vcluster_manager_f
+ 1355  ls
+ 1356  ls -lh
+ 1357  sudo scp ztpclient_1.5.1_all.deb ulak@172.10.10.240:/home/ulak
+ 1358  ls
+ 1359  md5sum maya-gnmi-server_0.4.1-1_all.xz.deb 
+ 1360  sudo scp maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.0.2.110:/ulak/home
+ 1361  sudo scp maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.0.2.110:/home/ulak
+ 1362  sudo scp maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.0.2.120:/home/ulak
+ 1363  sudo scp maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.0.2.130:/home/ulak
+ 1364  ssh ulak@192.0.2.120
+ 1365  exit
+ 1366  ssh ulak@172.70.70.130
+ 1367  ssh ulak@172.10.10.240
+ 1368  ssh ulak@192.0.2.120
+ 1369  virsh list --all
+ 1370  virsh console maya
+ 1371  virsh console maya1
+ 1372  ls
+ 1373  cd /opt/ulak/
+ 1374  ls
+ 1375  sudo nano run_maya_vm.sh 
+ 1376  cd qcow/
+ 1377  ls
+ 1378  sudo cp -r /home/ulak/maya_20112023.qcow2 .
+ 1379  ls
+ 1380  cd ..
+ 1381  ls
+ 1382  sudo bash run_maya_vm.sh 
+ 1383  ssh ulak@10.20.4.53
+ 1384  ls
+ 1385  sudo bash copy_config.sh 
+ 1386  ssh ulak@192.0.2.110
+ 1387  ls
+ 1388  cd qcow/
+ 1389  ls
+ 1390  ssh ulak@192.0.2.110
+ 1391  ls
+ 1392  ssh ulak@192.0.2.110
+ 1393  ssh ulak@192.0.2.130
+ 1394  ssh ulak@192.0.2.110
+ 1395  ssh ulak@192.0.2.120
+ 1396  ssh ulak@192.0.2.110
+ 1397  ls
+ 1398  scp -r maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.168.10.30:/var/lib/jenkins/workspace/mayaos-build/data/live-build-config/includes.chroot/opt/ulak
+ 1399  scp -r maya-gnmi-server_0.4.1-1_all.xz.deb ulak@192.168.10.30:/home/ulak
+ 1400  md5sum maya-gnmi-server_0.4.1-1_all.xz.deb 
+ 1401  cd /opt/ulak/qcow/
+ 1402  ls
+ 1403  scp -r maya_20112023.qcow2 root@192.168.144.3:/root/IMAGES
+ 1404  sudo su
+ 1405  ssh ulak@192.0.2.130
+ 1406  sudo virsh list
+ 1407  ssh ulak@192.0.2.130
+ 1408  ssh ulak@172.10.10.242
+ 1409  ssh ulak@172.10.10.241
+ 1410  ssh ulak@172.10.10.240
+ 1411  sudo virsh console maya3 
+ 1412  df -h
+ 1413  ssh ulak@192.0.2.110
+ 1414  ssh ulak@192.0.2.120
+ 1415  ssh ulak@192.0.2.130
+ 1416  virsh list --all
+ 1417  ping 192.0.2.130
+ 1418  ping 192.0.2.120
+ 1419  ping 192.0.2.110
+ 1420  virsh console maya3
+ 1421  virsh list --all
+ 1422  ping 192.0.2.130
+ 1423  virsh console maya
+ 1424  virsh console maya3
+ 1425  virsh list --all
+ 1426  sudo su
+ 1427  ssh ulak@192.0.2.110
+ 1428  ssh ulak@192.0.2.120
+ 1429  ssh ulak@192.0.2.130
+ 1430  ls
+ 1431  cd /opt/ulak/
+ 1432  ls
+ 1433  sudo bash run_maya_vm.sh 
+ 1434  ping 192.0.2.110
+ 1435  ssh ulak@192.0.2.110
+ 1436  cd qcow/
+ 1437  ls
+ 1438  sudo cp -r /home/ulak/maya_21112023.qcow2 .
+ 1439  df -h
+ 1440  ls
+ 1441  cd ..
+ 1442  sudo nano run_maya_vm.sh 
+ 1443  ls
+ 1444  sudo bash run_maya_vm.sh 
+ 1445  ls
+ 1446  sudo bash copy_config.sh 
+ 1447  ssh ulak@192.0.2.110
+ 1448  cd qcow/
+ 1449  ls
+ 1450  sudo cp -r /home/ulak/maya_21112023.qcow2 .
+ 1451  cd ..
+ 1452  ls
+ 1453  sudo bash run_maya_vm.sh 
+ 1454  ping 192.0.2.110
+ 1455  ssh ulak@192.0.2.110
+ 1456  sudo nano run_maya_vm.sh 
+ 1457  cd qcow/
+ 1458  sudo cp -r /home/ulak/maya_22112023.qcow2 .
+ 1459  cd ..
+ 1460  sudo bash run_maya_vm.sh 
+ 1461  ssh ulak@192.0.2.110
+ 1462  ls
+ 1463  cat copy_config.sh 
+ 1464  virsh list --all
+ 1465  watch -n1virsh list --all
+ 1466  watch -n1 virsh list --all
+ 1467  ping 192.0.2.130
+ 1468  ssh ulak@192.0.2.130
+ 1469  ssh ulak@192.0.2.120
+ 1470  ssh ulak@192.0.2.110
+ 1471  ssh ulak@192.0.2.120
+ 1472  ls
+ 1473  ping 192.0.2.130
+ 1474  ssh ulak@192.0.2.130
+ 1475  ping 192.0.2.130
+ 1476  ssh ulak@192.0.2.130
+ 1477  ssh ulak@192.0.2.120
+ 1478  ssh ulak@192.0.2.110
+ 1479  ssh ulak@192.0.2.120
+ 1480  ssh ulak@192.0.2.130
+ 1481  ssh ulak@172.10.10.60
+ 1482  exit
+ 1483  ping 192.0.2.130
+ 1484  ssh ulak@192.0.2.110
+ 1485  ssh ulak@192.0.2.120
+ 1486  ssh ulak@192.0.2.130
+ 1487  ssh ulak@172.10.10.60
+ 1488  sudo vcluster connect vcluster-simsek &
+ 1489  sudo su
+ 1490  ssh ulak@172.10.10.62
+ 1491  ssh ulak@192.0.2.110
+ 1492  ssh ulak@172.10.10.62
+ 1493  ssh ulak@172.10.10.7
+ 1494  ls
+ 1495  rm ipt_NETFLOW.ko
+ 1496  ls
+ 1497  scp libipt_NETFLOW.so ipt_NETFLOW.ko okan@10.213.135.13:/home/okan
+ 1498  watch -n1 virsh list --all
+ 1499  cd /opt/ulak/
+ 1500  ls
+ 1501  cat copy_config.sh 
+ 1502  watch -n1 virsh list --all
+ 1503  virsh list --all
+ 1504  watch -n1 virsh list --all
+ 1505  ssh ulak@192.0.2.110
+ 1506  ssh ulak@172.10.10.61
+ 1507  watch -n1 virsh list --all
+ 1508  clear
+ 1509  ssh ulak@10.20.4.53
+ 1510  ssh ulak@192.0.2.120
+ 1511  ssh ulak@192.0.2.130
+ 1512  watch -n1 virsh list --all
+ 1513  clear
+ 1514  watch -n1 virsh list --all
+ 1515  ssh ulak@192.0.2.110
+ 1516  ssh ulak@172.10.10.61
+ 1517  ssh ulak@172.10.10.60
+ 1518  cd aes/run_mayaos
+ 1519  ls
+ 1520  nano test_generic_single.sh 
+ 1521  nano test_generic.sh 
+ 1522  moninfo wireguard
+ 1523  modinfo wireguard
+ 1524  sudo rmmod wireguard
+ 1525  modinfo wireguard
+ 1526  sudo rmmod wireguard
+ 1527  sudo cp ../wireguard-mayaos/ci/5.4/wireguard-linux-compat/src/wireguard.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1528  sudo modprobe wireguard
+ 1529  modinfo wireguard
+ 1530  ls
+ 1531  nano test_generic_single.sh 
+ 1532  nano test_generic.sh 
+ 1533  ls
+ 1534  cat ./test_generic_single.sh 
+ 1535  sudo bash ./test_generic_single.sh  25
+ 1536  ls
+ 1537  nano test_generic.sh 
+ 1538  nano test_generic_single.sh 
+ 1539  ps aux | grep ip
+ 1540  ps aux | grep iperf
+ 1541  sudo bash ./test_generic_single.sh  25
+ 1542  ps aux | grep iperf
+ 1543  nano test_generic.sh 
+ 1544  sudo bash ./test_generic_single.sh  25
+ 1545  nano test_generic.sh 
+ 1546  sudo bash ./test_generic_single.sh  25
+ 1547  nano test_generic.sh 
+ 1548  sudo bash ./test_generic_single.sh  25
+ 1549  nano test_generic.sh 
+ 1550  sudo bash ./test_generic_single.sh  25
+ 1551  nano test_generic.sh 
+ 1552  sudo bash ./test_generic_single.sh  25
+ 1553  sudo chmod -R 777 aes/run_mayaos
+ 1554  top
+ 1555  cd aes/run_mayaos
+ 1556  nano test_generic.sh 
+ 1557  history
+ 1558  cd aes/
+ 1559  ls
+ 1560  cd wireguard-linux-compat/
+ 1561  ls
+ 1562  cd ..
+ 1563  ls
+ 1564  cd run_mayaos
+ 1565  ls
+ 1566  nano test_generic.sh 
+ 1567  nano test_generic_single.sh 
+ 1568  nano test_generic.sh 
+ 1569  modinfo wireguard
+ 1570  history
+ 1571  modinfo wireguard
+ 1572  sudo modinfo wireguard
+ 1573  ls
+ 1574  uname
+ 1575  uname -a
+ 1576  ls
+ 1577  cd 5.4/
+ 1578  ls
+ 1579  git status
+ 1580  cd ..
+ 1581  cd wireguard-mayaos/ci/5.4/wireguard-linux-compat/
+ 1582  ls
+ 1583  cd src/
+ 1584  ls
+ 1585  git status
+ 1586  git checkout aes
+ 1587  git diff ci/5.4/wireguard-linux-compat/src/main.c
+ 1588  git diff ../../../../ci/5.4/wireguard-linux-compat/src/main.c
+ 1589  git add ../../../../ci/5.4/wireguard-linux-compat/src/main.c
+ 1590  git commit -m "main.c"
+ 1591  git config  user.email "mfyuce@gmail.com"
+ 1592  git config  user.name "mfyuce"
+ 1593  git commit -m "main.c"
+ 1594  git remote -v
+ 1595  git push
+ 1596  git checkout aes
+ 1597  git pull
+ 1598  git status
+ 1599  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1600  cd ..
+ 1601  make -C wireguard-linux-compat/src
+ 1602  make -C wireguard-linux-compat/src/
+ 1603  cd wireguard-linux-compat/
+ 1604  cd src
+ 1605  make
+ 1606  history | grep make
+ 1607  make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1608  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1609  ls /lib/modules/$(uname -r)/build
+ 1610  ls
+ 1611  cd
+ 1612  ls
+ 1613  cd aes/wireguard-linux-compat/
+ 1614  ls
+ 1615  git status
+ 1616  ls
+ 1617  cd src/
+ 1618  ls
+ 1619  cd ..
+ 1620  ls
+ 1621  ls wireguard-mayaos/ci/5.4/
+ 1622  ls wireguard-mayaos/ci/5.4/wireguard-linux-compat/
+ 1623  history | grep wireguard-linux-compat
+ 1624  git checkout aes_5.4
+ 1625  cd wireguard-mayaos/
+ 1626  ls
+ 1627  git checkout aes_5.4
+ 1628  git pull
+ 1629  ls ci/5.4/wireguard-linux-compat/src
+ 1630  cd  ci/5.4/wireguard-linux-compat/src
+ 1631  make -C /lib/mod^Cles/$(uname -r)/build M=$(pwd) modules
+ 1632  make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1633  modinfo wireguard
+ 1634  sudo cp wireguard.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1635  modinfo wireguard
+ 1636  ps aux | grep iperf
+ 1637  ps aux | grep test_generic
+ 1638  ps aux | grep test_generic | awk '{print {1}}'
+ 1639  ps aux | grep test_generic | awk '{print $1}'
+ 1640  ps aux | grep test_generic | awk '{print $2}'
+ 1641  ps aux | grep test_generic | awk '{print $2}' | sudo kill -9
+ 1642  ps aux | grep test_generic | awk '{print $2}' | sudo xargs  kill -9
+ 1643  ps aux | grep test_generic
+ 1644  ps aux | grep test_generic
+ 1645  ps aux | grep test_generic | awk '{print $2}'
+ 1646  ps aux | grep test_generic | awk '{print $2}' | sudo xargs kill -9 
+ 1647  ps aux | grep test_generic | awk '{print $2}'
+ 1648  ps aux | grep test_generic | awk '{print $2}' | sudo xargs kill -9 
+ 1649  ps aux | grep test_generic | awk '{print $2}'
+ 1650  ps aux | grep iperf | awk '{print $2}'
+ 1651  ps aux | grep iperf3 | awk '{print $2}'
+ 1652  ps aux | grep iperf3 | awk '{print $2}' | sudo xargs kill -9 
+ 1653  ps aux | grep iperf3 | awk '{print $2}'
+ 1654  cd aes/run_mayaos
+ 1655  ls
+ 1656  sudo ./test_generic_single.sh 25
+ 1657  cd aes/run_mayaos
+ 1658  ls
+ 1659  history
+ 1660  ls
+ 1661  ./test_generic_single.sh 25
+ 1662  c
+ 1663  sudo ./test_generic_single.sh 25
+ 1664  ls
+ 1665  ls ..
+ 1666  ls ../
+ 1667  find ../ -name wireguard.ko
+ 1668  find ../../ -name wireguard.ko
+ 1669  ls
+ 1670  cd ..
+ 1671  ls
+ 1672  cd ..
+ 1673  ls
+ 1674  ls /usr/lib/modules/5.4.0-166-generic/kernel/wireguard/
+ 1675  ls /usr/lib/modules/5.4.0-166-generic/kernel/
+ 1676  ls /usr/lib/modules/5.4.0-166-generic/kernel/drivers/net/
+ 1677  cd aes/wireguard-mayaos/
+ 1678  ls
+ 1679  cd ..
+ 1680  ls
+ 1681  cd wireguard-mayaos/
+ 1682  ls
+ 1683  cd ci/5.4/wireguard-linux-compat/
+ 1684  git status
+ 1685  git checkout chacha_5.4
+ 1686  git pull
+ 1687  nano src/main.c 
+ 1688  cd src/
+ 1689  mv wireguard.ko  wireguard_5.4_aes.ko 
+ 1690  sudo make -C /lib/modules/$(uname -r)/build M=$(pwd) modules
+ 1691  sudo cp ./wireguard.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1692  modinfo wireguard
+ 1693  sudo modprob wireguard
+ 1694  sudo modprobe wireguard
+ 1695  modinfo wireguard
+ 1696  sudo modprobe wireguard
+ 1697  modinfo wireguard
+ 1698  ./test_generic_single.sh 25top
+ 1699  top
+ 1700  htop
+ 1701  ssh ulak@192.0.2.110
+ 1702  ssh ulak@192.0.2.120
+ 1703  ls
+ 1704  cd /opt/ulak/
+ 1705  ls
+ 1706  bash run_maya_vm.sh
+ 1707  sudo su
+ 1708  sudo bash run_maya_vm.sh 
+ 1709  ls
+ 1710  sudo bash copy_config.sh
+ 1711  ls
+ 1712  bash copy_config.sh 
+ 1713  exit
+ 1714  ls
+ 1715  cd /opt/ulak/robot/
+ 1716  ls
+ 1717  sudo cat overlay-check.robot 
+ 1718  cat overlay-check.robot 
+ 1719  sudo nano overlay-check.robot 
+ 1720  robot overlay-check.robot 
+ 1721  sudo robot overlay-check.robot 
+ 1722  sudo nano overlay-check.robot 
+ 1723  sudo robot overlay-check.robot 
+ 1724  sudo nano overlay-check.robot 
+ 1725  sudo robot overlay-check.robot 
+ 1726  sudo nano overlay-check.robot 
+ 1727  sudo robot overlay-check.robot 
+ 1728  sudo nano overlay-check.robot 
+ 1729  sudo robot overlay-check.robot 
+ 1730  sudo nano overlay-check.robot 
+ 1731  sudo robot overlay-check.robot 
+ 1732  cat overlay-check.robot 
+ 1733  sudo nano overlay-check.robot 
+ 1734  sudo robot overlay-check.robot 
+ 1735  cat overlay-check.robot 
+ 1736  sudo nano overlay-check.robot 
+ 1737  sudo robot overlay-check.robot 
+ 1738  sudo nano overlay-check.robot 
+ 1739  sudo robot overlay-check.robot 
+ 1740  sudo nano overlay-check.robot 
+ 1741  sudo robot overlay-check.robot 
+ 1742  sudo nano overlay-check.robot 
+ 1743  sudo robot overlay-check.robot 
+ 1744  sudo nano overlay-check.robot 
+ 1745  sudo robot overlay-check.robot 
+ 1746  cat overlay-check.robot 
+ 1747  sudo nano overlay-check.robot 
+ 1748  cat overlay-check.robot 
+ 1749  sudo robot overlay-check.robot 
+ 1750  cat overlay-check.robot 
+ 1751  sudo nano overlay-check.robot 
+ 1752  sudo robot overlay-check.robot 
+ 1753  sudo nano overlay-check.robot 
+ 1754  sudo robot overlay-check.robot 
+ 1755  ssh ulak@192.0.2.110
+ 1756  ls
+ 1757  cat overlay-check.robot 
+ 1758  sudo nano overlay-check.robot 
+ 1759  sudo robot overlay-check.robot 
+ 1760  sudo nano overlay-check.robot 
+ 1761  sudo robot overlay-check.robot 
+ 1762  sudo nano overlay-check.robot 
+ 1763  cat overlay-check.robot 
+ 1764  sudo nano overlay-check.robot 
+ 1765  sudo robot overlay-check.robot 
+ 1766  sudo nano overlay-check.robot 
+ 1767  sudo robot overlay-check.robot 
+ 1768  ls
+ 1769  cat wg_output.txt 
+ 1770  sudo nano overlay-check.robot 
+ 1771  robot overlay-check.robot 
+ 1772  sudo robot overlay-check.robot 
+ 1773  sudo nano overlay-check.robot 
+ 1774  pip install robotframework-requests
+ 1775  sudo robot overlay-check.robot 
+ 1776  sudo nano overlay-check.robot 
+ 1777  sudo robot overlay-check.robot 
+ 1778  sudo robot --loglevel TRACE overlay-check.robot 
+ 1779  sudo nano overlay-check.robot 
+ 1780  sudo robot --loglevel TRACE overlay-check.robot 
+ 1781  cat overlay-check.robot 
+ 1782  sudo nano overlay-check.robot 
+ 1783  sudo robot --loglevel TRACE overlay-check.robot 
+ 1784  sudo nano overlay-check.robot 
+ 1785  sudo robot --loglevel TRACE overlay-check.robot 
+ 1786  sudo nano overlay-check.robot 
+ 1787  cat overlay-check.robot 
+ 1788  ls
+ 1789  sudo nano overlay-check.robot 
+ 1790  sudo robot overlay-check.robot 
+ 1791  sudo nano overlay-check.robot 
+ 1792  ls
+ 1793  cat overlay-check.robot 
+ 1794  sudo nano overlay-check.robot 
+ 1795  sudo robot overlay-check.robot 
+ 1796  sudo nano overlay-check.robot 
+ 1797  sudo robot overlay-check.robot 
+ 1798  sudo nano overlay-check.robot 
+ 1799  sudo robot overlay-check.robot 
+ 1800  sudo nano overlay-check.robot 
+ 1801  sudo robot overlay-check.robot 
+ 1802  sudo nano overlay-check.robot 
+ 1803  sudo robot overlay-check.robot 
+ 1804  history
+ 1805  sudo robot --loglevel TRACE overlay-check.robot 
+ 1806  sudo nano overlay-check.robot 
+ 1807  sudo robot --loglevel TRACE overlay-check.robot 
+ 1808  ls
+ 1809  sudo robot --loglevel TRACE overlay-check.robot 
+ 1810  cat overlay-check.robot 
+ 1811  sudo robot --loglevel TRACE overlay-check.robot 
+ 1812  sudo nano overlay-check.robot 
+ 1813  sudo robot --loglevel TRACE overlay-check.robot 
+ 1814  sudo nano overlay-check.robot 
+ 1815  sudo robot --loglevel TRACE overlay-check.robot 
+ 1816  sudo nano overlay-check.robot 
+ 1817  cat overlay-check.robot 
+ 1818  ssh ulak@192.0.2.110
+ 1819  ping 192.0.2.110
+ 1820  virsh list --all
+ 1821  ping 192.0.2.120
+ 1822  ping 192.0.2.130
+ 1823  virsh console maya1
+ 1824  ls
+ 1825  cd ..
+ 1826  ls
+ 1827  sudo bash run_maya_vm.sh 
+ 1828  pip install robotframework
+ 1829  sudo apt install python3-pip
+ 1830  pip install robotframework
+ 1831  pip install robotframework-sshlibrary
+ 1832  ls
+ 1833  cd /opt/
+ 1834  ls
+ 1835  cd ulak/
+ 1836  ls
+ 1837  mkdir robot
+ 1838  sudo mkdir robot
+ 1839  cd robot/
+ 1840  ls
+ 1841  sudo nano overlay-check.robot
+ 1842  virsh list --all
+ 1843  robot overlay-check.robot 
+ 1844  ls
+ 1845  sudo us
+ 1846  sudo su
+ 1847  robot overlay-check.robot 
+ 1848  sudo robot overlay-check.robot 
+ 1849  sudo pip install robotframework-sshlibrary
+ 1850  sudo robot overlay-check.robot 
+ 1851  ssh ulak@192.0.2.110
+ 1852  sudo nano overlay-check.robot 
+ 1853  sudo robot overlay-check.robot 
+ 1854  cat log.html 
+ 1855  ls
+ 1856  python -m SimpleHTTPServer 8080
+ 1857  sudo python -m SimpleHTTPServer 8080
+ 1858  sudo su
+ 1859  htop
+ 1860  top
+ 1861  htop
+ 1862  top
+ 1863  htop
+ 1864  ps -mo pid,tid,%cpu,psr -p `pgrep BINARY-NAME`
+ 1865  `pgrep BINARY-NAME`
+ 1866  pgrep BINARY-NAME
+ 1867  ps -aeF
+ 1868  ps -aeF | grep 44
+ 1869  htop
+ 1870  history
+ 1871  cd aes/
+ 1872  ls
+ 1873  cd run_mayaos
+ 1874  sudo modprobe wireguard
+ 1875  sudo modinfo wireguard
+ 1876  sudo ./test_generic_single.sh 25
+ 1877  ls
+ 1878  ls wg
+ 1879  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1880  sudo rmmod wireguard
+ 1881  sudo modinfo wireguard
+ 1882  sudo modprobe wireguard
+ 1883  sudo modinfo wireguard
+ 1884  sudo modprobe wireguard
+ 1885  sudo ./test_generic_single.sh 25
+ 1886  sudo rmmod wireguard
+ 1887  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1888  sudo modinfo wireguard
+ 1889  sudo modprobe wireguard
+ 1890  sudo ./test_generic_single.sh 25
+ 1891  sudo rmmod wireguard
+ 1892  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1893  sudo modinfo wireguard
+ 1894  sudo modprobe wireguard
+ 1895  sudo ./test_generic_single.sh 25
+ 1896  sudo rmmod wireguard
+ 1897  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1898  sudo modinfo wireguard
+ 1899  sudo modprobe wireguard
+ 1900  sudo modinfo wireguard
+ 1901  sudo ./test_generic_single.sh 25
+ 1902  sudo rmmod wireguard
+ 1903  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1904  sudo modinfo wireguard
+ 1905  sudo modprobe wireguard
+ 1906  sudo modinfo wireguard
+ 1907  sudo ./test_generic_single.sh 25
+ 1908  sudo modinfo wireguard
+ 1909  sudo rmmod wireguard
+ 1910  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1911  sudo modinfo wireguard
+ 1912  sudo modprobe wireguard
+ 1913  sudo modinfo wireguard
+ 1914  sudo ./test_generic_single.sh 25
+ 1915  sudo rmmod wireguard
+ 1916  sudo modinfo wireguard
+ 1917  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1918  sudo modinfo wireguard
+ 1919  sudo modprobe wireguard
+ 1920  sudo modinfo wireguard
+ 1921  sudo ./test_generic_single.sh 25
+ 1922  sudo rmmod wireguard
+ 1923  sudo modinfo wireguard
+ 1924  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1925  sudo modinfo wireguard
+ 1926  sudo modprobe wireguard
+ 1927  sudo ./test_generic_single.sh 25
+ 1928  sudo modinfo wireguard
+ 1929  history
+ 1930  sudo modinfo wireguard
+ 1931  sudo rmmod wireguard
+ 1932  sudo modinfo wireguard
+ 1933  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1934  sudo modinfo wireguard
+ 1935  sudo modprobe wireguard
+ 1936  sudo modinfo wireguard
+ 1937  sudo ./test_generic_single.sh 25
+ 1938  sudo modinfo wireguard
+ 1939  sudo rmmod wireguard
+ 1940  sudo modinfo wireguard
+ 1941  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1942  sudo modinfo wireguard
+ 1943  sudo rmmod wireguard
+ 1944  sudo modprobe wireguard
+ 1945  sudo ./test_generic_single.sh 25
+ 1946  sudo modinfo wireguard
+ 1947  sudo rmmod wireguard
+ 1948  sudo modinfo wireguard
+ 1949  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1950  sudo modinfo wireguard
+ 1951  sudo modprobe wireguard
+ 1952  sudo modinfo wireguard
+ 1953  sudo ./test_generic_single.sh 25
+ 1954  sudo modinfo wireguard
+ 1955  sudo ./test_generic_single.sh 25
+ 1956  sudo rmmod wireguard
+ 1957  sudo modinfo wireguard
+ 1958  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1959  sudo modinfo wireguard
+ 1960  sudo modprobe wireguard
+ 1961  sudo ./test_generic_single.sh 25
+ 1962  cd aes
+ 1963  cd run_mayaos
+ 1964  sudo modinfo wireguard
+ 1965  ls
+ 1966  sudo ./test_generic_single.sh 25
+ 1967  tar cvzf output.tar.gz output_*.txt
+ 1968  export GZIP=-9 tar cvzf output1.tar.gz output_*.txt
+ 1969  export GZIP=-9
+ 1970  tar cvzf output.tar.gz output_*.txt
+ 1971  sudo modinfo wireguard
+ 1972  sudo cp ./wireguard_5.4_aes.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1973  sudo modinfo wireguard
+ 1974  sudo rmmod wireguard
+ 1975  sudo modinfo wireguard
+ 1976  sudo modprobe wireguard
+ 1977  sudo ./test_generic_single.sh 25
+ 1978  sudo modprobe wireguard
+ 1979  export GZIP=-9
+ 1980  tar cvzf output.tar.gz output_*.txt
+ 1981  ssh 172.30.30.5
+ 1982  ssh 172.30.30.2
+ 1983  sudo su
+ 1984  vcluster list
+ 1985  sudo vcluster list
+ 1986  ssh ulak@10.20.4.53
+ 1987  cd aes
+ 1988  sudo modinfo wireguard
+ 1989  cd run_mayaos
+ 1990  sudo ./test_generic_single.sh 25
+ 1991  sudo modinfo wireguard
+ 1992  sudo rmmod wireguard
+ 1993  sudo modinfo wireguard
+ 1994  sudo cp ./wireguard_5.4_plain.ko /lib/modules/5.4.0-166-generic/kernel/wireguard/wireguard.ko
+ 1995  sudo modinfo wireguard
+ 1996  sudo modprobe wireguard
+ 1997  sudo modinfo wireguard
+ 1998  sudo ./test_generic_single.sh 25
+ 1999  history > history

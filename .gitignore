@@ -1,0 +1,12 @@
+.idea/
+*.cmd
+*.o
+*.zip
+*.symvers
+*.order
+*.ko
+*.mod
+*.swp
+wireguard.mod.c
+wireguard.mod
+./tmp/**

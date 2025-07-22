@@ -1,0 +1,2547 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_POSTGRESQL-LOCAL",
+      "label": "PostgreSQL-local",
+      "description": "",
+      "type": "datasource",
+      "pluginId": "postgres",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__elements": {},
+  "__requires": [
+    {
+      "type": "panel",
+      "id": "barchart",
+      "name": "Bar chart",
+      "version": ""
+    },
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "9.1.5"
+    },
+    {
+      "type": "datasource",
+      "id": "postgres",
+      "name": "PostgreSQL",
+      "version": "1.0.0"
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 98,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 0,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "t"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aes_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bitrate"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.axisGridShow"
+              },
+              {
+                "id": "unit",
+                "value": "decbytes"
+              },
+              {
+                "id": "custom.scaleDistribution",
+                "value": {
+                  "log": 2,
+                  "type": "log"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 11,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.93,
+        "groupWidth": 0.66,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xField": "t",
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select cast(try as text) as t  , \n      avg(aes_sender_tp) aes_sender_tp, \n      avg(plain_sender_tp) plain_sender_tp, \n      avg(aes_receiver_tp) aes_receiver_tp, \n      avg(plain_receiver_tp) plain_receiver_tp,\n      avg(bitrate) bitrate\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_sender_tp,\n    sum(case when is_sender = 0 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_receiver_tp ,\n\t\tavg(bitrate) as bitrate\nfrom(\n\n  select is_aes,\n      is_sender, \n      try,\n  \t\tstp , \n  \t\tcount(*) cnt, \n  \t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp, \n  \t\tsum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310 t, \n  \t\tsum(rt) rt,\n  \t\tsum(rt)/(sum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310) rt_rate,\n  \t\tavg(bitrate) as bitrate\n  from send \n  where stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\n  group by is_aes,is_sender,try, stp\n  having try  in ( ${run} )\n  order by is_aes,is_sender, try, stp ) a\n  group by stp,try\n) q\ngroup by try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall ${type} By Run",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "t"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sender_difference_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "bitrate"
+            },
+            "properties": [
+              {
+                "id": "custom.axisPlacement",
+                "value": "right"
+              },
+              {
+                "id": "unit",
+                "value": "decbits"
+              },
+              {
+                "id": "custom.scaleDistribution",
+                "value": {
+                  "log": 2,
+                  "type": "log"
+                }
+              },
+              {
+                "id": "custom.axisCenteredZero",
+                "value": true
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "receiver_difference_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 12,
+        "y": 0
+      },
+      "id": 13,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select cast(try as text) as t  , \n      avg(aes_sender_tp) - avg(plain_sender_tp) sender_difference_tp, \n      avg(aes_receiver_tp) - avg(plain_receiver_tp) receiver_difference_tp--,\n      --avg(bitrate) bitrate\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_receiver_tp, \n    avg(bitrate) bitrate\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tcount(*) cnt, \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp, \n\t\tsum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310 t, \n\t\tsum(rt) rt,\n\t\tsum(rt)/(sum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310) rt_rate,\n\t\tavg(bitrate) bitrate\nfrom send \nwhere stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp\nhaving try  in ( ${run} )\norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall  ${type} Difference By Run",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "sender_difference_percent_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "receiver_percent_difference_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c0edba",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 0
+      },
+      "id": 14,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select try as time  , (sum(aes_sender_tp) - sum(plain_sender_tp))/sum(plain_sender_tp) sender_difference_percent_tp, (sum(aes_receiver_tp) - sum(plain_receiver_tp))/sum(plain_receiver_tp) receiver_percent_difference_tp\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 1 then tp else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp else 0 end) plain_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tcount(*) cnt, \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp, \n\t\tsum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310 t, \n\t\tsum(rt) rt,\n\t\tsum(rt)/(sum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310) rt_rate\nfrom send \nwhere stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp\nhaving try  in ( ${run} )\norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall  Difference Percent By Run",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 24,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select try as time  , sum(aes_sender_rt)/sum(aes_sender_t) aes_sender_rt, sum(plain_sender_rt)/sum(plain_sender_t) plain_sender_rt\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then rt else 0 end) aes_sender_rt ,\n    sum(case when is_sender = 1 and is_aes = 0 then rt else 0 end) plain_sender_rt,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then t else 0 end) plain_sender_t\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(rt*1310) rt,\n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total Retransmission Difference By Run",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 12,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select try as time  , sum(aes_sender_rt)/sum(aes_sender_t-aes_sender_rt) aes_sender_rt, sum(plain_sender_rt)/sum(plain_sender_t-plain_sender_rt) plain_sender_rt\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then rt else 0 end) aes_sender_rt ,\n    sum(case when is_sender = 1 and is_aes = 0 then rt else 0 end) plain_sender_rt,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then t else 0 end) plain_sender_t\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(rt*1310) rt,\n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total Retransmission  Percent By Run",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aes_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aes_receiver_t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_receiver_t"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 5,
+        "x": 0,
+        "y": 18
+      },
+      "id": 28,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time  , sum(aes_sender_t) aes_sender_t, sum(plain_sender_t) plain_sender_t, sum(aes_receiver_t) aes_receiver_t, sum(plain_receiver_t) plain_receiver_t\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t t  else 0 end) plain_sender_t,\n    sum(case when is_sender = 0 and is_aes = 1 then t  else 0 end) aes_receiver_t ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t t  else 0 end) plain_receiver_t \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end)/(case when '${type}'= 'bps' then 1 else 1310 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q ;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total ${type}",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aes_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c0edba",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 5,
+        "x": 5,
+        "y": 18
+      },
+      "id": 17,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time , \n      avg(aes_sender_tp) aes_sender_tp, \n      avg(plain_sender_tp) plain_sender_tp, \n      avg(aes_receiver_tp) aes_receiver_tp, \n      avg(plain_receiver_tp) plain_receiver_tp\nfrom(\nselect try as time  , \n       avg(aes_sender_tp) aes_sender_tp, \n       avg(plain_sender_tp) plain_sender_tp, \n       avg(aes_receiver_tp) aes_receiver_tp, \n       avg(plain_receiver_tp) plain_receiver_tp\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp  else 0 end) plain_sender_tp,\n    sum(case when is_sender = 0 and is_aes = 1 then tp  else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp  else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end)/(case when '${type}'= 'bps' then 1 else 1310 end) tp\nfrom send \nwhere try  in ( ${run} ) and stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try)r;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall  ${type} Average",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "receiver_percent_difference_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c0edba",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 10,
+        "y": 18
+      },
+      "id": 16,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time , avg(sender_difference_percent_tp) sender_difference_percent_tp, avg(receiver_percent_difference_tp) receiver_percent_difference_tp\nfrom(\nselect try as time  , (avg(aes_sender_tp) - avg(plain_sender_tp))/avg(plain_sender_tp) sender_difference_percent_tp, (avg(aes_receiver_tp) - avg(plain_receiver_tp))/avg(plain_receiver_tp) receiver_percent_difference_tp\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tcount(*) cnt, \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp, \n\t\tsum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310 t, \n\t\tsum(rt) rt,\n\t\tsum(rt)/(sum(case when t_type = 'MBytes' then tp*1000000 else t*1000 end)/1310) rt_rate\nfrom send \nwhere try  in ( ${run} ) and stp < 1000 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try)r;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall  ${type} Average Diff%",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              },
+              {
+                "id": "custom.axisLabel",
+                "value": "Time"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "receiver_difference_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#c0edba",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 7,
+        "x": 17,
+        "y": 18
+      },
+      "id": 15,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time , avg(sender_difference_tp) sender_difference_tp, avg(receiver_difference_tp) receiver_difference_tp\nfrom (\nselect try as time  , avg(aes_sender_tp) - avg(plain_sender_tp) sender_difference_tp, avg(aes_receiver_tp) - avg(plain_receiver_tp) receiver_difference_tp\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 1 then tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_sender_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp/(case when '${type}'= 'bps' then 1 else 1310 end) else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tcount(*) cnt, \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp\nhaving try  in ( ${run} )\norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q\ngroup by try) r;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Overall ${type} Avg. Diff",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 0,
+        "y": 28
+      },
+      "id": 27,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time  , (sum(plain_sender_rt)-sum(aes_sender_rt)) diff\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then rt else 0 end) aes_sender_rt ,\n    sum(case when is_sender = 1 and is_aes = 0 then rt else 0 end) plain_sender_rt,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then t else 0 end) plain_sender_t\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(rt*1310) rt,\n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q ;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total Retransmission Difference",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "percentage",
+            "steps": [
+              {
+                "color": "super-light-purple",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": -100
+              },
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "green",
+                "value": 100
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_sender"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 8,
+        "y": 28
+      },
+      "id": 26,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time  , (aes_sender-plain_sender)/plain_sender diff\nfrom (\nselect 0 as time  , sum(aes_sender_rt)/sum(aes_sender_t) aes_sender, sum(plain_sender_rt)/sum(plain_sender_t) plain_sender\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then rt else 0 end) aes_sender_rt ,\n    sum(case when is_sender = 1 and is_aes = 0 then rt else 0 end) plain_sender_rt,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then t else 0 end) plain_sender_t\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(rt*1310) rt,\n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q )s;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total Retransmission Percent Difference",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 8,
+        "x": 16,
+        "y": 28
+      },
+      "id": 25,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select 0 as time  , sum(aes_sender_rt)/sum(aes_sender_t-aes_sender_rt) aes_sender_rt, sum(plain_sender_rt)/sum(plain_sender_t-plain_sender_rt) plain_sender_rt\nfrom \n(\nselect try,stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then rt else 0 end) aes_sender_rt ,\n    sum(case when is_sender = 1 and is_aes = 0 then rt else 0 end) plain_sender_rt,\n    sum(case when is_sender = 1 and is_aes = 1 then t else 0 end) aes_sender_t ,\n    sum(case when is_sender = 1 and is_aes = 0 then t else 0 end) plain_sender_t\nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tsum(rt*1310) rt,\n\t\tsum(case when t_type = 'MBytes' then t*1000000 else t*1000 end) t\nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) q ;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total Retransmission  Percent",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 37
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp else 0 end) plain_sender_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp ,  \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try\norder by time;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Sender By Run&Step",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "none"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "aes_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-green",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "plain_receiver_tp"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "super-light-yellow",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 37
+      },
+      "id": 20,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select stp+(1000 * (try-1))  as time,\n    sum(case when is_sender = 0 and is_aes = 1 then tp else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp ,  \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send \nwhere  try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Receiver By Run&Step",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 45
+      },
+      "id": 21,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select time, (aes_receiver_tp - plain_receiver_tp) as receiver_tp_difference --try,stp,\nfrom(\nselect stp+(1000 * (try-1))  as time,--,try,stp,\n    sum(case when is_sender = 0 and is_aes = 1 then tp else 0 end) aes_receiver_tp ,\n    sum(case when is_sender = 0 and is_aes = 0 then \t tp else 0 end) plain_receiver_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp , \n\t\tcount(*) cnt, \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send \nwhere  try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) r\nwhere aes_receiver_tp > 0 and plain_receiver_tp > 0;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Receiver Difference By Run&Step",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 45
+      },
+      "id": 19,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select time, ((aes_sender_tp - plain_sender_tp)/plain_sender_tp) as sender_tp_difference_percent --try,stp,\nfrom(\nselect stp+(1000 * (try-1))  as time,--,try,stp,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp else 0 end) plain_sender_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp ,  \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send  \nwhere try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) r\nwhere aes_sender_tp > 0 and plain_sender_tp > 0;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Sender Difference Percent By Run&Step",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "id": 18,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select time, (aes_sender_tp - plain_sender_tp) as sender_tp_difference --try,stp,\nfrom(\nselect stp+(1000 * (try-1))  as time,--,try,stp,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp else 0 end) plain_sender_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp ,  \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send \nwhere  try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) r\nwhere aes_sender_tp > 0 and plain_sender_tp > 0;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Sender Difference By Run&Step",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "${DS_POSTGRESQL-LOCAL}"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "series",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "id": 22,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "${DS_POSTGRESQL-LOCAL}"
+          },
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "select time, ((aes_sender_tp - plain_sender_tp)/plain_sender_tp) as sender_tp_difference_percent --try,stp,\nfrom(\nselect stp+(1000 * (try-1))  as time,--,try,stp,\n    sum(case when is_sender = 1 and is_aes = 1 then tp else 0 end) aes_sender_tp ,\n    sum(case when is_sender = 1 and is_aes = 0 then \t tp else 0 end) plain_sender_tp \nfrom(\n\nselect is_aes,\n    is_sender, \n    try,\n\t\tstp ,  \n\t\tsum(case when tp_type = 'Gbits/sec' then tp*1000000000 else tp*1000000 end) tp \nfrom send \nwhere  try  in ( ${run} ) and stp < 999 and (( '${protocol}' = 'tcp' and is_tcp = 1) or ( '${protocol}' = 'udp' and is_tcp = 0) )\ngroup by is_aes,is_sender,try, stp \norder by is_aes,is_sender, try, stp ) a\ngroup by stp,try) r\nwhere aes_sender_tp > 0 and plain_sender_tp>0;",
+          "refId": "A",
+          "select": [
+            [
+              {
+                "params": [
+                  "value"
+                ],
+                "type": "column"
+              }
+            ]
+          ],
+          "timeColumn": "time",
+          "where": [
+            {
+              "name": "$__timeFilter",
+              "params": [],
+              "type": "macro"
+            }
+          ]
+        }
+      ],
+      "title": "Total  Receiver Difference Percent By Run&Step",
+      "type": "barchart"
+    }
+  ],
+  "refresh": false,
+  "schemaVersion": 37,
+  "style": "dark",
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "postgres",
+          "uid": "${DS_POSTGRESQL-LOCAL}"
+        },
+        "definition": "select distinct try::text ||'-'||try::text  from send  ",
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "run",
+        "options": [],
+        "query": "select distinct try::text ||'-'||try::text  from send  ",
+        "refresh": 1,
+        "regex": "(?<text>.*)-(?<value>.*)$",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "bps",
+          "value": "bps"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "type",
+        "options": [
+          {
+            "selected": false,
+            "text": "pps",
+            "value": "pps"
+          },
+          {
+            "selected": true,
+            "text": "bps",
+            "value": "bps"
+          }
+        ],
+        "query": "pps,bps",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": false,
+          "text": "tcp",
+          "value": "tcp"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "multi": false,
+        "name": "protocol",
+        "options": [
+          {
+            "selected": true,
+            "text": "tcp",
+            "value": "tcp"
+          },
+          {
+            "selected": false,
+            "text": "udp",
+            "value": "udp"
+          }
+        ],
+        "query": "tcp,udp",
+        "queryValue": "",
+        "skipUrlSync": false,
+        "type": "custom"
+      }
+    ]
+  },
+  "time": {
+    "from": "1970-01-01T00:00:00.000Z",
+    "to": "1970-01-01T00:00:13.000Z"
+  },
+  "timepicker": {},
+  "timezone": "",
+  "title": "localdash",
+  "uid": "67_Z9zHIz",
+  "version": 46,
+  "weekStart": ""
+}

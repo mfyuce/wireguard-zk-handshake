@@ -1,0 +1,45 @@
+# This file uses the version 2 docker-compose file format, described here:
+# https://docs.docker.com/compose/compose-file/#version-2
+#
+# This runs the zipkin and zipkin-mysql containers, using docker-compose's
+# default networking to wire the containers together.
+#
+# Note that this file is meant for learning Zipkin, not production deployments.
+
+version: '2'
+
+services:
+  redis:
+    image: redis/redis-stack:latest
+    container_name: redis
+    environment:
+      REDISTIMESERIES_ARGS: "RETENTION_POLICY=20"
+      REDIS_ARGS: "--requirepass ulak"
+    ports:
+      - "6379:6379"
+      - "8001:8001"
+
+  postgress:
+    container_name: postgres
+    image: postgres:11
+    environment:
+      POSTGRES_PASSWORD: m1latDB
+      POSTGRES_DB: wg
+    ports:
+      - "35432:5432"
+    volumes:
+      - ./postgresql:/var/lib/postgresql
+      - ./pg.sql:/docker-entrypoint-initdb.d/create_db.sql
+    command: postgres -c 'max_connections=50000'
+
+  grafana:
+    container_name: grafana
+    image: grafana/grafana
+    environment:
+      POSTGRES_PASSWORD: m1latDB
+      POSTGRES_DB: wg
+    ports:
+      - "33000:3000"
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+    command: postgres -c 'max_connections=50000'
