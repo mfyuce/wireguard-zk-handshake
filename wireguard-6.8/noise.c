@@ -581,9 +581,9 @@ out:
 }
 
 struct wg_peer *
-wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
-				      struct wg_device *wg)
+wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 {
+	const struct message_handshake_initiation *src = raw_msg;
 	struct wg_peer *peer = NULL, *ret_peer = NULL;
 	struct noise_handshake *handshake;
 	bool replay_attack, flood_attack;
@@ -595,6 +595,29 @@ wg_noise_handshake_consume_initiation(struct message_handshake_initiation *src,
 	u8 t[NOISE_TIMESTAMP_LEN];
 	u64 initiation_consumption;
 
+	// ZK hook: if this is a ZK handshake, short-circuit for user-space
+    if (src->header.type == MESSAGE_HANDSHAKE_INITIATION_ZK) {
+        const struct message_handshake_initiation_zk *zk = raw_msg;
+        u32 sender_index = le32_to_cpu(zk->sender_index);
+
+        // ✅ Lookup peer by index (usually from encrypted_static)
+        peer = wg_pubkey_hashtable_lookup_by_index(wg, sender_index);
+        if (!peer) {
+            pr_warn("WG-ZK: Unknown peer for sender_index=%u, dropping\n", sender_index);
+            goto out;
+        }
+
+        // Defer further processing until user-space approval
+        zk_pending_add(sender_index, peer);
+        zk_debugfs_update(zk, sizeof(*zk));  // makes raw ZK packet visible
+
+        pr_info("WG-ZK: Handshake ZK init from peer index=%u — waiting for proof...\n", sender_index);
+
+        return ERR_PTR(-EAGAIN);  // defer response
+    }
+
+
+    // Normal (non-ZK) handshake below:
 	down_read(&wg->static_identity.lock);
 	if (unlikely(!wg->static_identity.has_identity))
 		goto out;

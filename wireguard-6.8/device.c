@@ -461,7 +461,11 @@ int __init wg_device_init(void)
 	if (ret)
 		goto error_pernet;
 
-	return 0;
+    ret = wgzk_genl_init();
+    if (ret)
+        return ret;
+
+    return 0;
 
 error_pernet:
 	unregister_pernet_device(&pernet_ops);
@@ -479,5 +483,7 @@ void wg_device_uninit(void)
 	unregister_random_vmfork_notifier(&vm_notifier);
 	unregister_pm_notifier(&pm_notifier);
 	rcu_barrier();
+
+    wgzk_genl_exit();
 }
 

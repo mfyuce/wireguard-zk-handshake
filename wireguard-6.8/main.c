@@ -17,9 +17,20 @@
 #include <linux/genetlink.h>
 #include <net/rtnetlink.h>
 
+#include "zk_debugfs.h"
+#include "wgzk_genl.h"
+#include "zk_pending.h"
+
+
 static int __init wg_mod_init(void)
 {
 	int ret;
+
+
+    zk_debugfs_init();
+    wgzk_netlink_init();      // Optional: Netlink family for ZK ACKs
+    zk_pending_init_cleanup_timer();
+    zk_procfs_init();
 
 	ret = wg_allowedips_slab_init();
 	if (ret < 0)
@@ -66,6 +77,11 @@ static void __exit wg_mod_exit(void)
 	wg_device_uninit();
 	wg_peer_uninit();
 	wg_allowedips_slab_uninit();
+
+    wgzk_netlink_exit();
+    zk_debugfs_cleanup();
+    zk_pending_cleanup_timer_exit();
+    zk_procfs_exit();
 }
 
 module_init(wg_mod_init);

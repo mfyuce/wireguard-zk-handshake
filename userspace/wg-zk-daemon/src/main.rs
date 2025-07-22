@@ -26,14 +26,14 @@ fn load_static_pk() -> EdwardsPoint {
 }
 
 fn main() {
-    println!("🧠 Starting wg-zk-daemon...");
+    println!("Starting wg-zk-daemon...");
     let mut last = [0u8; 96];
     let pk = load_static_pk();
 
     loop {
         if let Ok(buf) = fs::read("/sys/kernel/debug/wireguard/zk_handshake") {
             if buf.len() >= 96 && &buf[..96] != &last {
-                println!("🔍 New handshake received");
+                println!("New handshake received");
                 last[..96].copy_from_slice(&buf[..96]);
                 let sender_index = u32::from_le_bytes(buf[4..8].try_into().unwrap());
 
@@ -41,10 +41,10 @@ fn main() {
                 let zk_s = Scalar::from_canonical_bytes(buf[64..96].try_into().unwrap()).unwrap();
 
                 if verify_proof(pk, zk_r, zk_s) {
-                    println!("✅ ZK verified for peer {}", sender_index);
+                    println!("ZK verified for peer {}", sender_index);
                     netlink::send_wgzk_ack(sender_index, 1).unwrap();
                 } else {
-                    println!("❌ ZK failed for peer {}", sender_index);
+                    println!("ZK failed for peer {}", sender_index);
                     netlink::send_wgzk_ack(sender_index, 0).unwrap();
                 }
             }

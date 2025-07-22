@@ -1,32 +1,50 @@
 #include <linux/spinlock.h>
-#include <linux/slab.h>
 #include <linux/hashtable.h>
+#include <linux/slab.h>
+#include <linux/timer.h>
+#include <linux/ktime.h>
+#include <linux/jiffies.h>
+#include <linux/module.h>
+#include <linux/printk.h>
+
 #include "peer.h"
 #include "zk_pending.h"
 
-#define ZK_PENDING_BITS 4  // 2⁴ = 16 buckets
+#define ZK_HASH_BITS 8
+#define ZK_PENDING_TIMEOUT_NS (5 * NSEC_PER_SEC)
 
-struct zk_pending_entry {
-    u32 sender_index;
-    struct wg_peer *peer;
-    struct hlist_node node;
-};
+DEFINE_HASHTABLE(zk_pending_table, ZK_HASH_BITS);
+DEFINE_SPINLOCK(zk_lock);
 
-static DEFINE_HASHTABLE(zk_pending_table, ZK_PENDING_BITS);
-static DEFINE_SPINLOCK(zk_pending_lock);
+static struct timer_list zk_cleanup_timer;
+static atomic_t zk_pending_count = ATOMIC_INIT(0);
+
+int zk_pending_get_count(void)
+{
+    return atomic_read(&zk_pending_count);
+}
+
 
 void zk_pending_add(u32 sender_index, struct wg_peer *peer)
 {
-    struct zk_pending_entry *entry = kzalloc(sizeof(*entry), GFP_ATOMIC);
+	struct zk_pending_entry *entry;
+
+	// Cleanup before adding
+	zk_pending_cleanup_expired();
+
+	entry = kmalloc(sizeof(*entry), GFP_KERNEL);
     if (!entry)
         return;
 
     entry->sender_index = sender_index;
     entry->peer = peer;
+    entry->created_ns = ktime_get_coarse_boottime_ns();
 
-    spin_lock_bh(&zk_pending_lock);
+	spin_lock_bh(&zk_lock);
     hash_add(zk_pending_table, &entry->node, sender_index);
-    spin_unlock_bh(&zk_pending_lock);
+	spin_unlock_bh(&zk_lock);
+    atomic_inc(&zk_pending_count);
+	pr_info("WG-ZK: Added pending peer index=%u\n", sender_index);
 }
 
 struct wg_peer *zk_pending_get(u32 sender_index)
@@ -34,16 +52,55 @@ struct wg_peer *zk_pending_get(u32 sender_index)
     struct zk_pending_entry *entry;
     struct wg_peer *peer = NULL;
 
-    spin_lock_bh(&zk_pending_lock);
+	spin_lock_bh(&zk_lock);
     hash_for_each_possible(zk_pending_table, entry, node, sender_index) {
         if (entry->sender_index == sender_index) {
+			hash_del(&entry->node);
             peer = entry->peer;
-            hash_del(&entry->node);
             kfree(entry);
             break;
         }
     }
-    spin_unlock_bh(&zk_pending_lock);
+	spin_unlock_bh(&zk_lock);
 
     return peer;
+}
+
+void zk_pending_cleanup_expired(void)
+{
+    struct zk_pending_entry *entry;
+	struct hlist_node *tmp;
+    int bkt;
+
+    u64 now = ktime_get_coarse_boottime_ns();
+
+    spin_lock_bh(&zk_lock);
+	hash_for_each_safe(zk_pending_table, bkt, tmp, entry, node) {
+        if ((s64)(now - entry->created_ns) > ZK_PENDING_TIMEOUT_NS) {
+			pr_info("WG-ZK: Expired pending index=%u\n", entry->sender_index);
+            hash_del(&entry->node);
+            kfree(entry);
+        }
+    }
+    spin_unlock_bh(&zk_lock);
+    atomic_dec(&zk_pending_count);
+}
+
+// Background cleanup timer
+
+static void zk_timer_fn(struct timer_list *t)
+{
+    zk_pending_cleanup_expired();
+    mod_timer(&zk_cleanup_timer, jiffies + msecs_to_jiffies(1000));
+}
+
+void zk_pending_init_cleanup_timer(void)
+{
+    timer_setup(&zk_cleanup_timer, zk_timer_fn, 0);
+    mod_timer(&zk_cleanup_timer, jiffies + msecs_to_jiffies(1000));
+}
+
+void zk_pending_cleanup_timer_exit(void)
+{
+    del_timer_sync(&zk_cleanup_timer);
 }
