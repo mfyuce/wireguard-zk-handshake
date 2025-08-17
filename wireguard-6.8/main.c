@@ -22,14 +22,20 @@
 #include "wgzk_genl.h"
 #include "zk_procfs.h"
 
+static struct dentry *wg_dbg_dir;  // module-global
 
 static int __init wg_mod_init(void)
 {
 	int ret;
-
+	/* In module init (or wg_init): */
+	wg_dbg_dir = debugfs_create_dir("wireguard", NULL);
+	if (IS_ERR_OR_NULL(wg_dbg_dir)) {
+		pr_err("wgzk: wireguard debugfs dir create failed\n");
+		return -ENOMEM;
+	}
 
     /* create our ZK debugfs dir at the root (NULL parent) */
-	zk_debugfs_init(NULL);
+	zk_debugfs_init(wg_dbg_dir);
 	wgzk_genl_init();
 	zk_procfs_init();
 

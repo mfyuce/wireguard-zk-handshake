@@ -15,6 +15,7 @@
 #include <linux/ipv6.h>
 #include <linux/udp.h>
 #include <net/ip_tunnels.h>
+#include "zk_debugfs.h"
 
 /* Must be called with bh disabled. */
 static void update_rx_stats(struct wg_peer *peer, size_t len)
@@ -151,6 +152,27 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 		net_dbg_ratelimited("%s: Receiving handshake initiation from peer %llu (%pISpfsc)\n",
 				    wg->dev->name, peer->internal_id,
 				    &peer->endpoint.addr);
+
+        /* === ZK: publish 96 bytes for userspace === */
+        {
+            u8 out[96] = {0};
+            /* layout:
+               [0..4]  : (optional) seq/marker (0 for now)
+               [4..8]  : sender_index/peer id (LE)
+               [8..32] : reserved (zeros)
+               [32..64]: zk_R (compressed Edwards-Y)
+               [64..96]: zk_s (scalar)
+            */
+            put_unaligned_le32((u32)peer->internal_id, &out[4]);
+            memcpy(&out[32], message->zk_R, 32);
+            memcpy(&out[64], message->zk_s, 32);
+            zk_publish_handshake(out);
+            /* If you want to block the handshake until userspace ACKs,
+               return here and resume from your netlink ACK handler.
+               For now we proceed to send the normal response. */
+        }
+        /* === end ZK block === */
+
 		wg_packet_send_handshake_response(peer);
 		break;
 	}

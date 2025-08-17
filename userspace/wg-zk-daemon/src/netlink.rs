@@ -17,7 +17,7 @@ const WGZK_CMD_VERIFY: u8 = 1;
 const WGZK_ATTR_PEER_INDEX: u16 = 1;
 const WGZK_ATTR_RESULT: u16 = 2;
 
-pub fn send_wgzk_ack(peer_index: u32, result: u8) -> Result<(), Box<dyn std::error::Error>> {
+pub async fn send_wgzk_ack(peer_index: u32, result: u8) -> Result<(), Box<dyn std::error::Error>> {
     // Use NlRouter in neli 0.7
     let (router, _rx) = NlRouter::connect(NlFamily::Generic, None, Groups::empty())?;
 

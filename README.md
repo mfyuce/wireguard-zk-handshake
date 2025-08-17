@@ -135,7 +135,12 @@ genl ctrl get name wgzk
 >>>>>                #1:  ID-0x1 
 >>>>>
 
+sudo ip link add dev wg0 type wireguard
+sudo ip link set wg0 up
+ls /sys/kernel/debug/wireguard
 
+sudo umount /sys/kernel/debug 
+sudo mount -t debugfs none /sys/kernel/debug
 ```
 
 to remove
