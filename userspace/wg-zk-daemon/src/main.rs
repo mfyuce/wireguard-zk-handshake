@@ -22,7 +22,7 @@ use neli::nl::{NlPayload, NlmsghdrBuilder};
 
 use curve25519_dalek::{constants::ED25519_BASEPOINT_POINT as G, edwards::EdwardsPoint, scalar::Scalar};
 use sha2::{Digest, Sha512};
-use std::{fs, thread, time::Duration};
+use std::{fs,  time::Duration};
 use neli::socket::asynchronous::NlSocketHandle;
 use neli::utils::Groups;
 
@@ -36,6 +36,9 @@ use curve25519_dalek::{
 };
 
 use tokio::{fs as tfs, time::sleep};
+
+use neli::err::Nlmsgerr;
+
 // Async soket
 
 // Groups (multicast grupları)
@@ -118,7 +121,7 @@ async fn run_daemon(pk: EdwardsPoint) -> Result<()> {
                     None => {
                         eprintln!("Malformed zk_r for peer {}", sender_index);
                         // send failure ack but don’t crash
-                        if let Err(e) = netlink::send_wgzk_ack(sender_index, 0).await {
+                        if let Err(e) = netlink::send_verify_ack("wgzk", 1, sender_index, 0).await {
                             eprintln!("netlink ack (fail) error: {e:#}");
                         }
                         sleep(Duration::from_millis(200)).await;
@@ -128,7 +131,7 @@ async fn run_daemon(pk: EdwardsPoint) -> Result<()> {
 
                 let Ok(arr) = <[u8; 32]>::try_from(&buf[64..96]) else {
                     eprintln!("Bad zk_s slice for peer {sender_index}");
-                    if let Err(e) = netlink::send_wgzk_ack(sender_index, 0).await {
+                    if let Err(e) = netlink::send_verify_ack("wgzk", 1, sender_index, 0).await {
                         eprintln!("netlink ack (fail) error: {e:#}");
                     }
                     sleep(Duration::from_millis(200)).await;
@@ -137,7 +140,7 @@ async fn run_daemon(pk: EdwardsPoint) -> Result<()> {
 
                 let Some(zk_s) = Scalar::from_canonical_bytes(arr).into() else {
                     eprintln!("Non-canonical zk_s for peer {sender_index}");
-                    if let Err(e) = netlink::send_wgzk_ack(sender_index, 0).await {
+                    if let Err(e) = netlink::send_verify_ack("wgzk", 1, sender_index, 0).await {
                         eprintln!("netlink ack (fail) error: {e:#}");
                     }
                     sleep(Duration::from_millis(200)).await;
@@ -147,12 +150,12 @@ async fn run_daemon(pk: EdwardsPoint) -> Result<()> {
                 let ok = verify_proof(pk, zk_r, zk_s);
                 if ok {
                     eprintln!("ZK verified for peer {}", sender_index);
-                    if let Err(e) = netlink::send_wgzk_ack(sender_index, 1).await {
+                    if let Err(e) = netlink::send_verify_ack("wgzk", 1, sender_index, 1).await {
                         eprintln!("netlink ack (success) error: {e:#}");
                     }
                 } else {
                     eprintln!("ZK failed for peer {}", sender_index);
-                    if let Err(e) = netlink::send_wgzk_ack(sender_index, 0).await {
+                    if let Err(e) = netlink::send_verify_ack("wgzk", 1, sender_index, 0).await {
                         eprintln!("netlink ack (fail) error: {e:#}");
                     }
                 }
@@ -181,7 +184,7 @@ async fn main() -> Result<()> {
         match cli.cmd {
             Commands::SendVerifyAck { peer_index, result, family, version } => {
             // if your netlink module exposes an async helper that resolves family+builds msg:
-            send_verify_ack(&family, version, peer_index, result)
+            netlink::send_verify_ack(&family, version, peer_index, result)
                 .await
                 .with_context(|| "sending VERIFY_ACK failed")?;
             Ok(())
@@ -190,111 +193,4 @@ async fn main() -> Result<()> {
 
     }
 
-}
-/// Family id çöz
-async fn resolve_family_id(sock: &mut NlSocketHandle, name: &str) -> Result<u16> {
-    // family name attribute
-    let attr: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(u16::from(CtrlAttr::FamilyName)))
-        .nla_payload(Buffer::from(name.as_bytes().to_vec()))
-        .build()?;
-
-    let mut attrs: GenlBuffer<u16, Buffer> = GenlBuffer::new();
-    // attribute’ları ekle
-    attrs.push(attr);
-
-    let genlhdr = GenlmsghdrBuilder::default()
-        .cmd(CtrlCmd::Getfamily)
-        .version(1)
-        .attrs(attrs)
-        .build()?;
-
-    let nlhdr = NlmsghdrBuilder::default()
-        .nl_type(GenlId::Ctrl)
-        .nl_flags(NlmF::REQUEST | NlmF::ACK)
-        .nl_payload(NlPayload::Payload(genlhdr))
-        .build()?;
-
-    sock.send(&nlhdr).await?;
-
-    let (iter, _) = sock.recv().await?;
-    for msg in iter {
-        let msg: Nlmsghdr<u16, Genlmsghdr<CtrlCmd, CtrlAttr>> = msg?;
-        if let NlPayload::Payload(p) = msg.nl_payload() {
-            for attr in p.attrs().iter() {
-                if u16::from(*attr.nla_type().nla_type()) ==  u16::from(CtrlAttr::FamilyId) {
-                    let id = u16::from_ne_bytes(
-                        attr.nla_payload().as_ref()[..2].try_into().unwrap(),
-                    );
-                    return Ok(id);
-                }
-            }
-        }
-    }
-    bail!("family '{}' id not found", name)
-}
-
-
-/// VERIFY_ACK gönder
-pub async fn send_verify_ack(
-    family: &str,
-    genl_version: u8,
-    peer_index: u32,
-    result: u8,
-) -> Result<()> {
-    const WGZK_CMD_VERIFY_ACK: u8 = 1;
-    const WGZK_ATTR_PEER_INDEX: u16 = 1;
-    const WGZK_ATTR_RESULT: u16 = 2;
-
-    let mut sock = NlSocketHandle::connect(NlFamily::Generic, None, Groups::empty())?;
-
-    let fam_id = resolve_family_id(&mut sock, family).await?;
-    eprintln!("family '{}' resolved to id {}", family, fam_id);
-
-
-
-    use neli::genl::{AttrType, Nlattr};
-    use neli::types::{Buffer, GenlBuffer};
-
-    // constants
-    let a1: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_PEER_INDEX))
-        .nla_payload(Buffer::from(peer_index.to_ne_bytes().to_vec()))
-        .build()?;
-
-    let a2: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_RESULT))
-        .nla_payload(Buffer::from(vec![result]))
-        .build()?;
-    let mut attrs: GenlBuffer<u16, Buffer> = GenlBuffer::new();
-    // attribute’ları ekle
-    attrs.push(a1);
-    attrs.push(a2);
-
-
-    let genlhdr = GenlmsghdrBuilder::default()
-        .cmd(WGZK_CMD_VERIFY_ACK)
-        .version(genl_version)
-        .attrs(attrs)
-        .build()?;
-
-
-    let nlhdr = NlmsghdrBuilder::default()
-        .nl_type(fam_id)
-        .nl_flags(NlmF::REQUEST | NlmF::ACK)
-        .nl_payload(NlPayload::Payload(genlhdr))
-        .build()?;
-
-    sock.send(&nlhdr).await.context("send failed")?;
-
-    let (iter, _) = sock.recv().await.context("recv failed")?;
-    for msg in iter {
-        let msg: Nlmsghdr<u16, Genlmsghdr<u8, u16>> = msg?;
-        if matches!((*msg.nl_type()).into(), Nlmsg::Error) {
-            eprintln!("got ACK");
-            return Ok(());
-        }
-    }
-
-    bail!("no ACK received")
 }

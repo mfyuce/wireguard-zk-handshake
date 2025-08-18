@@ -241,3 +241,29 @@ http://localhost:33000/d/67_Z9zHIz1/localdash?orgId=1&
 ```
 
 ![retransmission_tcp.png](experimentation/retransmission_tcp.png)
+
+
+# Endianness for peer_index
+
+This work used `to_ne_bytes()` for the userspace → kernel message. 
+In kernel code, if you read with `nla_get_u32()`, it expects native endian, 
+so `to_ne_bytes()` is correct on the same machine/arch. 
+If you later cross-arch, switch both sides to a defined endianness (commonly little-endian) 
+and use `cpu_to_le32`/`le32_to_cpu` in kernel.
+
+# Async socket creation
+
+Good:
+```rust
+let mut sock = NlSocketHandle::connect(NlFamily::Generic, None, Groups::empty())?;
+```
+
+If you ever need multicast groups, use `Groups::from_bits_truncate(..)`.
+
+# Version in CTRL_CMD_GETFAMILY
+
+This work set .version(1). 
+
+Kernel `genetlink` control typically accepts v1; 
+Keep it 1 here (your own family’s messages can use whatever 
+versioning you choose, but control cmds are fine with 1).
