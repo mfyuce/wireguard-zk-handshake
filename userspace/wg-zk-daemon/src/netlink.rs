@@ -17,7 +17,7 @@ use neli::genl::Nlattr;
 use neli::nl::{Nlmsghdr, NlmsghdrBuilder};
 use neli::socket::asynchronous::NlSocketHandle;
 
-const WGZK_GENL: &str = "wgzk_genl";
+const WGZK_GENL: &str = "wgzk";
 const WGZK_VERSION: u8 = 1;
 const WGZK_CMD_VERIFY: u8 = 1;
 const WGZK_ATTR_PEER_INDEX: u16 = 1;

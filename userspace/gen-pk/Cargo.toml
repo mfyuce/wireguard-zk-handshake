@@ -1,0 +1,10 @@
+[package]
+name = "gen-pk"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rand = "0.9.2"
+ed25519-dalek = { version = "2.2.0", features = ["rand_core"] }
+hex = "0.4.3"
+getrandom = "0.3.3"

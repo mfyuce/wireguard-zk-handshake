@@ -87,11 +87,24 @@ fn verify_proof(pk: EdwardsPoint, zk_r: EdwardsPoint, zk_s: Scalar) -> bool {
     zk_s * G == zk_r + c * pk
 }
 
-fn load_static_pk() -> EdwardsPoint {
-    let hex = fs::read_to_string("config/static_pk.hex").expect("missing static_pk");
-    let pk_bytes = hex::decode(hex.trim()).expect("bad hex");
-    decompress_point(&pk_bytes).expect("invalid point")
+pub fn load_static_pk() -> Result<EdwardsPoint> {
+    let s = std::fs::read_to_string("config/static_pk.hex")
+        .with_context(|| "reading static_pk.hex failed")?;
+    let s = s.trim();
+    if s.is_empty() {
+        bail!("static_pk.hex is empty");
+    }
+    let bytes = hex::decode(s).with_context(|| "static_pk.hex is not valid hex")?;
+    if bytes.len() != 32 {
+        bail!("static_pk.hex must be 32 bytes (64 hex chars), got {}", bytes.len());
+    }
+    let mut arr = [0u8; 32];
+    arr.copy_from_slice(&bytes);
+    CompressedEdwardsY(arr)
+        .decompress()
+        .ok_or_else(|| anyhow::anyhow!("invalid point in static_pk.hex"))
 }
+
 
 // --- daemon ---
 
@@ -177,7 +190,7 @@ async fn run_daemon(pk: EdwardsPoint) -> Result<()> {
 #[tokio::main]
 async fn main() -> Result<()> {
     println!("Starting wg-zk-daemon...");
-    let pk = load_static_pk();
+    let pk = load_static_pk().with_context(|| "loading static public key")?;
     let cli = Cli::parse();
 
 
