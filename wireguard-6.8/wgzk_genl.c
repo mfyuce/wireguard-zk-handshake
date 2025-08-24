@@ -8,6 +8,8 @@
 #include "zk_pending.h"
 #include "wgzk_genl.h"
 #include "zk_proof.h"
+// + include for ifindex helper
+#include <linux/netdevice.h>
 
 struct wg_peer *wg_noise_handshake_consume_initiation(void *raw_msg,
                                                       struct wg_device *wg);
@@ -25,9 +27,12 @@ enum {
 	WGZK_ATTR_PEER_INDEX,
 	WGZK_ATTR_RESULT,
     /* new: for setting proof */
-    WGZK_ATTR_PEER_ID,   /* NLA_U64: peer->internal_id */
+    WGZK_ATTR_PEER_ID,   /* NLA_U64: peer->internal_id (initiator)*/
     WGZK_ATTR_R,         /* NLA_BINARY, len=32 */
     WGZK_ATTR_S,         /* NLA_BINARY, len=32 */
+    WGZK_ATTR_IFINDEX,   /* u32: netdev ifindex (initiator interface) */
+    WGZK_ATTR_PEER_PUB,  /* bin[32]: optional, remote static pk */
+    WGZK_ATTR_TOKEN,     /* u32: optional correlation */
 	__WGZK_ATTR_MAX,
 };
 #define WGZK_ATTR_MAX (__WGZK_ATTR_MAX - 1)
@@ -38,8 +43,8 @@ enum {
 enum {
     WGZK_CMD_UNSPEC,
 	WGZK_CMD_VERIFY,
-    /* new */
     WGZK_CMD_SET_PROOF,
+    WGZK_CMD_NEED_PROOF,   /* multicast event */
     __WGZK_CMD_MAX,
 };
 #define WGZK_CMD_MAX (__WGZK_CMD_MAX - 1)
@@ -53,8 +58,16 @@ static const struct nla_policy wgzk_genl_policy[WGZK_ATTR_MAX + 1] = {
     [WGZK_ATTR_PEER_ID]    = { .type = NLA_U64 },
     [WGZK_ATTR_R]          = { .type = NLA_BINARY, .len = 32 },
     [WGZK_ATTR_S]          = { .type = NLA_BINARY, .len = 32 },
+    [WGZK_ATTR_IFINDEX]    = { .type = NLA_U32 },
+    [WGZK_ATTR_PEER_PUB]   = { .type = NLA_BINARY, .len = 32 },
+    [WGZK_ATTR_TOKEN]      = { .type = NLA_U32 },
 };
 
+/* === Define one multicast group === */
+enum { WGZK_MCGRP_EVENTS, __WGZK_MCGRP_MAX };
+static const struct genl_multicast_group wgzk_mcgrps[] = {
+    [WGZK_MCGRP_EVENTS] = { .name = "events" },
+};
 //
 // VERIFY handler
 //
@@ -134,6 +147,8 @@ static struct genl_family wgzk_genl_family = {
 	.module   = THIS_MODULE,
 	.ops      = wgzk_genl_ops,
 	.n_ops    = ARRAY_SIZE(wgzk_genl_ops),
+    .mcgrps   = wgzk_mcgrps,
+    .n_mcgrps = ARRAY_SIZE(wgzk_mcgrps),
 };
 
 //
@@ -177,4 +192,29 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
     pr_info("WG-ZK: cached proof for peer_id=%llu\n",
             (unsigned long long)peer_id);
     return 0;
+}
+/* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
+static void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
+                                      u64 peer_id, const u8 *peer_pub, u32 token)
+{
+    struct sk_buff *skb;
+    void *hdr;
+
+    skb = genlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+    if (!skb)
+        return;
+
+    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0, WGZK_CMD_NEED_PROOF);
+    if (!hdr) { kfree_skb(skb); return; }
+
+    nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex);
+    nla_put_u64_64bit(skb, WGZK_ATTR_PEER_ID, peer_id, WGZK_ATTR_UNSPEC);
+    if (peer_pub)
+        nla_put(skb, WGZK_ATTR_PEER_PUB, 32, peer_pub);
+    if (token)
+        nla_put_u32(skb, WGZK_ATTR_TOKEN, token);
+
+    genlmsg_end(skb, hdr);
+    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb,
+                            0 /*portid*/, WGZK_MCGRP_EVENTS, GFP_ATOMIC);
 }

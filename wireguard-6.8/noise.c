@@ -577,11 +577,24 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
         u8 r[32], s[32];
         u64 pid = handshake->entry.peer->internal_id;
         if (zk_proof_get_and_clear(pid, r, s)) {
+			pr_info("WG-ZK: using cached proof for peer_id=%llu\n",
+					(unsigned long long)pid);
             memcpy(zkdst->zk_r, r, 32);
             memcpy(zkdst->zk_s, s, 32);
         } else {
-            pr_warn("WG-ZK: no cached R,S for peer_id=%llu\n",
-                    (unsigned long long)pid);
+
+			struct wg_device *wgd = handshake->entry.peer->device;
+			u32 ifindex = wgd->dev->ifindex;
+			pr_info("WG-ZK: cache miss; requesting proof for peer_id=%llu (ifindex=%u)\n",
+					(unsigned long long)pid, ifindex);
+
+			/* Tell userspace to provide (R,S) */
+			wgzk_multicast_need_proof(dev_net(wgd->dev), ifindex, pid,
+									  handshake->remote_static, 0 /*token*/);
+
+
+			/* Do NOT send a broken ZK or classic; abort creation */
+			goto out;  /* ret=false; caller won't transmit */
         }
     }
 	dst->sender_index = wg_index_hashtable_insert(

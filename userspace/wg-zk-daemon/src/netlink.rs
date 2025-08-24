@@ -1,8 +1,7 @@
-use anyhow::{bail, Context};
+use anyhow::Context;
 use neli::attr::Attribute;
-use neli::consts::genl::CtrlCmd;
-use neli::consts::nl::Nlmsg;
 use neli::genl::Nlattr;
+use neli::consts::genl::CtrlCmd;
 use neli::nl::{Nlmsghdr, NlmsghdrBuilder};
 use neli::socket::asynchronous::NlSocketHandle;
 use neli::{
@@ -18,211 +17,358 @@ use neli::{
     utils::Groups,
 };
 
-pub const WGZK_GENL: &str = "wgzk";
-// pub const WGZK_VERSION: u8 = 1;
-// pub const WGZK_CMD_VERIFY: u8 = 1;
-pub const WGZK_ATTR_PEER_INDEX: u16 = 1;
-pub const WGZK_ATTR_RESULT: u16 = 2;
+
+use neli::consts::{
+    genl::CtrlAttrMcastGrp,
+};
+use anyhow::{anyhow,  Result};
+use std::collections::HashMap;
 
 
-// Your wireguard-zk constants (keep them in one place)
-pub const WGZK_CMD_SET_PROOF: u8 = 2;
-pub const WGZK_ATTR_PEER_ID: u16 = 3;
-pub const WGZK_ATTR_R: u16 = 4;
-pub const WGZK_ATTR_S: u16 = 5;
+#[repr(u8)]
+#[derive(Copy, Clone)]
+pub enum WgzkCmd {
+    Unspec = 0,
+    Verify = 1,
+    SetProof = 2,
+    NeedProof = 3,
+}
+pub const WGZK_CMD_NEED_PROOF: u8 = 1;
+pub const WGZK_CMD_SET_PROOF:  u8 = 2;
+#[repr(u16)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash)]
+pub enum WgzkAttr {
+    Unspec = 0,
+    PeerIndex = 1,
+    Result = 2,
+    PeerId = 3,
+    R = 4,
+    S = 5,
+    Ifindex = 6,
+    PeerPub = 7,
+    Token = 8,
+}
+impl From<u16> for WgzkAttr {
+    fn from(v: u16) -> Self {
+        match v {
+            1 => WgzkAttr::PeerIndex,
+            2 => WgzkAttr::Result,
+            3 => WgzkAttr::PeerId,
+            4 => WgzkAttr::R,
+            5 => WgzkAttr::S,
+            6 => WgzkAttr::Ifindex,
+            7 => WgzkAttr::PeerPub,
+            8 => WgzkAttr::Token,
+            _ => WgzkAttr::Unspec,
+        }
+    }
+}
 
+pub struct GenlResolved {
+    pub family_id: u16,
+    pub mcast_groups: HashMap<String, u32>,
+}
 
-pub const WGZK_CMD_VERIFY_ACK: u8 = 1;
+/* ---------------- helpers ---------------- */
 
-async fn resolve_family_id(sock: &mut NlSocketHandle, name: &str) -> anyhow::Result<u16> {
-    let mut attrs: GenlBuffer<CtrlAttr, Buffer> = GenlBuffer::new();
+fn nattr_ctrl(t: CtrlAttr, payload: Vec<u8>) -> Result<Nlattr<CtrlAttr, Buffer>> {
+    Ok(NlattrBuilder::<CtrlAttr, Buffer>::default()
+        .nla_type(AttrType::from(u16::from(t)))
+        .nla_payload(Buffer::from(payload))
+        .build()?)
+}
+
+fn nattr_u16(t: u16, payload: Vec<u8>) -> Result<Nlattr<u16, Buffer>> {
+    Ok(NlattrBuilder::<u16, Buffer>::default()
+        .nla_type(AttrType::from(t))
+        .nla_payload(Buffer::from(payload))
+        .build()?)
+}
+
+/* ---------------- connect / resolve ---------------- */
+
+pub async fn connect_genl() -> Result<NlSocketHandle> {
+    Ok(NlSocketHandle::connect(NlFamily::Generic, None, Groups::empty())?)
+}
+
+pub async fn add_mcast(sock: &NlSocketHandle, grp_id: u32) -> Result<()> {
+    // 0.7.x API: new_groups()
+    sock.add_mcast_membership(Groups::new_groups(&[grp_id]))?;
+    Ok(())
+}
+/// Parse a buffer of netlink attributes into (type, payload) pairs.
+/// Handles 4-byte alignment padding per nla_align().
+fn parse_nla_pairs(buf: &[u8]) -> Vec<(u16, &[u8])> {
+    let mut res = Vec::new();
+    let mut off = 0usize;
+
+    while off + 4 <= buf.len() {
+        // header
+        let len = u16::from_le_bytes([buf[off], buf[off + 1]]) as usize;
+        let typ = u16::from_le_bytes([buf[off + 2], buf[off + 3]]);
+        if len < 4 || off + len > buf.len() {
+            break; // malformed or truncated, bail gracefully
+        }
+
+        // payload = [off+4 .. off+len)
+        let payload = &buf[off + 4..off + len];
+        res.push((typ, payload));
+
+        // align to 4
+        let aligned = (len + 3) & !3;
+        off += aligned;
+    }
+
+    res
+}
+
+pub async fn resolve_family_and_groups(
+    sock: &mut NlSocketHandle,
+    name: &str,
+) -> Result<GenlResolved> {
+    // GenlBuffer<CtrlAttr, Buffer>
+    let attrs: GenlBuffer<CtrlAttr, Buffer> = GenlBuffer::new();
 
     // NUL-terminated family name ("wgzk\0")
     let mut namez = Vec::with_capacity(name.len() + 1);
     namez.extend_from_slice(name.as_bytes());
     namez.push(0);
 
-    // Typed attr/buffer: CtrlAttr + Buffer
-    let name_attr: Nlattr<CtrlAttr, Buffer> = NlattrBuilder::<CtrlAttr, Buffer>::default()
-        .nla_type(AttrType::from(u16::from(CtrlAttr::FamilyName))) // <-- u16'dan AttrType<CtrlAttr>
-        .nla_payload(Buffer::from(namez))
-        .build()?;
+    // attrs.push(nattr_ctrl(CtrlAttr::FamilyName, namez)?);
 
-    attrs.push(name_attr);
-
-    // CTRL_CMD_GETFAMILY v2
+    // CTRL_CMD_GETFAMILY v2 + ACK
     let genlhdr = GenlmsghdrBuilder::default()
         .cmd(CtrlCmd::Getfamily)
         .version(2)
         .attrs(attrs)
         .build()?;
-
-    let req = NlmsghdrBuilder::default()
+    let req: Nlmsghdr<GenlId, Genlmsghdr<CtrlCmd, CtrlAttr>> = NlmsghdrBuilder::default()
         .nl_type(GenlId::Ctrl)
         .nl_flags(NlmF::REQUEST | NlmF::ACK)
         .nl_payload(NlPayload::Payload(genlhdr))
         .build()?;
 
-    sock.send(&req).await.context("ctrl send failed")?;
+    sock.send(&req).await.context("send GETFAMILY")?;
 
-    // ACK may come first; then the NEWFAMILY payload with attrs.
+    // ---- parse responses
+    let mut family_id: Option<u16> = None;
+    let mut groups = std::collections::HashMap::new();
+
     loop {
-        let (iter, _) = sock.recv().await.context("ctrl recv failed")?;
+        let (iter, _grps) = sock
+            .recv::<neli::consts::nl::NlTypeWrapper, neli::genl::Genlmsghdr<CtrlCmd, CtrlAttr>>()
+            .await?;
+
         for msg in iter {
-            let msg: Nlmsghdr<u16, Genlmsghdr<CtrlCmd, CtrlAttr>> = msg?;
-            if *msg.nl_type() == u16::from(Nlmsg::Error) {
-                if let NlPayload::Err(e) = msg.nl_payload() {
-                    if *e.error() != 0 {
-                        bail!("genl ctrl getfamily failed: {}", e);
-                        }
-                    }
+            let msg = msg?;                           // Nlmsghdr<_, _>
+            let nlw = *msg.nl_type();                 // NlTypeWrapper (copy out of &)
+            let nl_u16: u16 = nlw.into();             // -> u16
+
+            // If you prefer matching Nlmsg tag:
+            // match neli::consts::nl::Nlmsg::from(nl_u16) {
+            //     neli::consts::nl::Nlmsg::Error => continue, // or handle error frame
+            //     _ => {}
+            // }
+
+            if nl_u16 != GenlId::Ctrl.into() {
                 continue;
-                }
-            if let NlPayload::Payload(p) = msg.nl_payload() {
-                for a in p.attrs().iter() {
-                    // Look at the *response* attr type:
-                    if let _ty @ CtrlAttr::FamilyId = *a.nla_type().nla_type() {
-                        let id: u16 = a.get_payload_as()?;
-                        return Ok(id);
-                }
+            }
+
+            if let neli::nl::NlPayload::Payload(genl) = msg.nl_payload() {
+                for attr in genl.attrs().iter() {
+                    let atype = *attr.nla_type().nla_type();
+
+                    if atype == CtrlAttr::from(u16::from(CtrlAttr::FamilyId)) {
+                        let b = attr.payload();
+                        let bytes: [u8; 2] = b.as_ref().try_into().unwrap();
+                        family_id = Some(u16::from_le_bytes(bytes));
+                    } else if atype == CtrlAttr::from(u16::from(CtrlAttr::McastGroups)) {
+                        // The payload is a nested list of "group" attributes, each of which
+                        // itself contains nested Name/Id attributes.
+                        let level1 = parse_nla_pairs(attr.payload().as_ref());
+                        for (_grp_type, grp_payload) in level1 {
+                            // Each group payload has Name/Id inside
+                            let level2 = parse_nla_pairs(grp_payload);
+
+                            let mut name: Option<String> = None;
+                            let mut id: Option<u32> = None;
+
+                            for (t, p) in level2 {
+                                if t == u16::from(CtrlAttrMcastGrp::Name) {
+                                    // Name is a C-string; kernel usually includes trailing NUL, but
+                                    // String::from_utf8 will happily ignore if we don't trim it.
+                                    // Trim a single trailing NUL if present.
+                                    let mut v = p.to_vec();
+                                    if let Some(&0) = v.last() { v.pop(); }
+                                    name = Some(String::from_utf8(v)?);
+                                } else if t == u16::from(CtrlAttrMcastGrp::Id) {
+                                    if p.len() >= 4 {
+                                        let bytes: [u8; 4] = p[0..4].try_into().unwrap();
+                                        id = Some(u32::from_le_bytes(bytes));
+                                    }
+                                }
+                            }
+
+                            if let (Some(n), Some(i)) = (name, id) {
+                                groups.insert(n, i);
+                            }
+                        }
                     }
                 }
             }
         }
+
+        if family_id.is_some() {
+            break;
+        }
     }
 
-/// VERIFY_ACK
-pub async fn send_verify_ack(
-    family: &str,
-    genl_version: u8, // should be 1 for your wgzk family
-    peer_index: u32,
-    result: u8,
-) -> anyhow::Result<()> {
 
+    Ok(GenlResolved {
+        family_id: family_id.ok_or_else(|| anyhow!("family id not found for {}", name))?,
+        mcast_groups: groups,
+    })
+}
 
-    let mut sock = NlSocketHandle::connect(NlFamily::Generic, None, Groups::empty())?;
+/* ---------------- senders (Buffer + builders + ACK) ---------------- */
 
-    let fam_id = resolve_family_id(&mut sock, family).await?;
-    eprintln!("family '{}' resolved to id {}", family, fam_id);
-
-    // Build attrs (your family uses u16 attr numbers)
-    let a1: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_PEER_INDEX))
-        .nla_payload(Buffer::from(peer_index.to_ne_bytes().to_vec()))
-        .build()?;
-
-    let a2: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_RESULT))
-        .nla_payload(Buffer::from(vec![result]))
-        .build()?;
+pub async fn send_set_proof(
+    sock: &mut NlSocketHandle,
+    family_id: u16,
+    peer_id: u64,
+    token: Option<u32>,   // <—
+    r: &[u8; 32],
+    s: &[u8; 32],
+) -> Result<()> {
     let mut attrs: GenlBuffer<u16, Buffer> = GenlBuffer::new();
-    // attribute’ları ekle
-    attrs.push(a1);
-    attrs.push(a2);
-
+    attrs.push(nattr_u16(WgzkAttr::PeerId as u16, peer_id.to_le_bytes().to_vec())?);
+    if let Some(t) = token {
+        attrs.push(nattr_u16(WgzkAttr::Token as u16, t.to_le_bytes().to_vec())?);
+    }
+    attrs.push(nattr_u16(WgzkAttr::R as u16, r.to_vec())?);
+    attrs.push(nattr_u16(WgzkAttr::S as u16, s.to_vec())?);
+    // İleride 'extra' bağlamak istersen, burada yeni bir ATTR ekleyebilirsin (kernel destekliyorsa).
 
     let genlhdr = GenlmsghdrBuilder::default()
-        .cmd(WGZK_CMD_VERIFY_ACK)
-        .version(genl_version) // pass 1
+        .cmd(WgzkCmd::SetProof as u8)
+        .version(1)
         .attrs(attrs)
         .build()?;
 
-
-    let nlhdr = NlmsghdrBuilder::default()
-        .nl_type(fam_id)
+    let req: Nlmsghdr<u16, Genlmsghdr<u8, u16>> = NlmsghdrBuilder::default()
+        .nl_type(family_id) // generic T = u16
         .nl_flags(NlmF::REQUEST | NlmF::ACK)
         .nl_payload(NlPayload::Payload(genlhdr))
         .build()?;
 
-    sock.send(&nlhdr).await.context("send failed")?;
-
-    // Accept any of: ACK (Err code=0), Ack, Done, or a genl payload.
-    loop {
-        let (iter, _) = sock.recv().await.context("recv failed")?;
-        for msg in iter {
-            let msg: Nlmsghdr<u16, Genlmsghdr<u8, u16>> = msg?;
-            match (*msg.nl_type()).into() {
-                Nlmsg::Error => match msg.nl_payload() {
-                    NlPayload::Err(e) => {
-                        if *e.error() == 0 {
-                        println!("VERIFY_ACK sent ✅");
-                            return Ok(());
-                        } else {
-                            bail!("Kernel returned NLMSG_ERROR: {}", e);
-                        }
-                    }
-                NlPayload::Ack(_) | NlPayload::Empty => {
-                    println!("VERIFY_ACK sent ✅");
-                    return Ok(());
-                }
-                _ => {
-                    // bazı çekirdeklerde Error tipiyle farklı payload döner
-                    println!("VERIFY_ACK sent ✅ (non-standard ACK payload)");
-                    return Ok(());
-                }
-            },
-            Nlmsg::Done => {
-                println!("VERIFY_ACK sent ✅ (DONE)");
-                return Ok(());
-            }
-                _ => {
-                    if let NlPayload::Payload(_) = msg.nl_payload() {
-                    println!("VERIFY_ACK handled ✅ (reply payload)");
-                        return Ok(());
-                    }
-                // değilse okumaya devam
-                }
-            }
-        }
-    }
+    sock.send(&req).await?;
+    // ACK beklemeden gönder—kernel başarısız olursa bir sonraki NEED_PROOF tekrar tetiklenecek.
+    Ok(())
 }
 
-
-/// Send WGZK_CMD_SET_PROOF(peer_id, R, S) to the kernel
-pub async fn send_set_proof(
-    family_name: &str,
-    version: u8,
-    peer_id: u64,
-    r: &[u8; 32],
-    s: &[u8; 32],
-)   {
-    let mut sock = NlSocketHandle::connect(NlFamily::Generic, None, Groups::empty())
-        .context("connect generic netlink for SET_PROOF").unwrap();
-
-    let fam_id = resolve_family_id(&mut sock, family_name).await.unwrap();
-    eprintln!("family '{}' resolved to id {}", family_name, fam_id);
-
+pub async fn send_verify(
+    sock: &mut NlSocketHandle,
+    family_id: u16,
+    sender_index: u32,
+    result: u8,
+) -> Result<()> {
     let mut attrs: GenlBuffer<u16, Buffer> = GenlBuffer::new();
-
-    // Build attrs (your family uses u16 attr numbers)
-    let a1: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_PEER_ID))
-        .nla_payload(Buffer::from(peer_id.to_ne_bytes().to_vec()))
-        .build().unwrap();
-    attrs.push(a1);
-    let a2: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_R))
-        .nla_payload(Buffer::from(r.to_vec()))
-        .build().unwrap();
-    attrs.push(a2);
-    let a2: Nlattr<u16, Buffer> = NlattrBuilder::default()
-        .nla_type(AttrType::from(WGZK_ATTR_S))
-        .nla_payload(Buffer::from(s.to_vec()))
-        .build().unwrap();
-    attrs.push(a2);
+    attrs.push(nattr_u16(WgzkAttr::PeerIndex as u16, sender_index.to_le_bytes().to_vec())?);
+    attrs.push(nattr_u16(WgzkAttr::Result as u16, vec![result])?);
 
     let genlhdr = GenlmsghdrBuilder::default()
-        .cmd(WGZK_CMD_SET_PROOF)
-        .version(version) // pass 1
+        .cmd(WgzkCmd::Verify as u8)
+        .version(1)
         .attrs(attrs)
-        .build().unwrap();
-
-    let nlhdr = NlmsghdrBuilder::default()
-        .nl_type(fam_id)
-        .nl_flags(NlmF::REQUEST)
+        .build()?;
+    let req: Nlmsghdr<u16, Genlmsghdr<u8, u16>> = NlmsghdrBuilder::default()
+        .nl_type(family_id) // generic T = u16
+        .nl_flags(NlmF::REQUEST | NlmF::ACK)
         .nl_payload(NlPayload::Payload(genlhdr))
-        .build().unwrap();
+        .build()?;
 
-    sock.send(&nlhdr).await.context("send failed").unwrap();
-
+    sock.send(&req).await?;
+    Ok(())
 }
+
+/* ---------------- receiver ---------------- */
+
+pub struct NeedProofEvent {
+    pub ifindex: u32,
+    pub peer_id: u64,
+    pub peer_pub: Option<[u8; 32]>,
+    pub token: Option<u32>,
+}
+
+pub fn try_parse_need_proof(genl: &Genlmsghdr<u8, u16>) -> Option<NeedProofEvent> {
+    if *genl.cmd() != WgzkCmd::NeedProof as u8 {
+        return None;
+    }
+    let mut ifindex: Option<u32> = None;
+    let mut peer_id: Option<u64> = None;
+    let mut peer_pub: Option<[u8; 32]> = None;
+    let mut token: Option<u32> = None;
+
+    for a in genl.attrs().iter() {
+        match WgzkAttr::from(*a.nla_type().nla_type()) {
+            WgzkAttr::Ifindex => {
+                let b = a.payload();
+                let bytes: [u8; 4] = b.as_ref().try_into().ok()?;
+                ifindex = Some(u32::from_le_bytes(bytes));
+            }
+            WgzkAttr::PeerId => {
+                let b = a.payload();
+                let bytes: [u8; 8] = b.as_ref().try_into().ok()?;
+                peer_id = Some(u64::from_le_bytes(bytes));
+            }
+            WgzkAttr::PeerPub => {
+                let p = a.payload();
+                let s = p.as_ref();
+                if s.len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(s);
+                    peer_pub = Some(arr);
+                }
+            }
+            WgzkAttr::Token => {
+                let b = a.payload();
+                let bytes: [u8; 4] = b.as_ref().try_into().ok()?;
+                token = Some(u32::from_le_bytes(bytes));
+            }
+            _ => {}
+        }
+    }
+
+    Some(NeedProofEvent {
+        ifindex: ifindex?,
+        peer_id: peer_id?,
+        peer_pub,
+        token,
+    })
+}
+
+pub async fn recv_next(
+    sock: &mut neli::socket::asynchronous::NlSocketHandle,
+) -> anyhow::Result<(u16, neli::genl::Genlmsghdr<u8, u16>)> {
+    use neli::{consts::nl::NlTypeWrapper, nl::NlPayload};
+    use neli::consts::nl::Nlmsg;
+
+    let (iter, _groups) = sock.recv::<NlTypeWrapper, neli::genl::Genlmsghdr<u8, u16>>().await?;
+    for msg in iter {
+        let msg = msg?;                       // Nlmsghdr<_, _>
+        let nlw = *msg.nl_type();             // NlTypeWrapper
+        let nl_u16: u16 = nlw.into();         // -> u16
+
+        match Nlmsg::from(nl_u16) {
+            Nlmsg::Noop => continue,
+            Nlmsg::Error => return Err(anyhow::anyhow!("netlink error frame")),
+            _ => {}
+        }
+
+        if let NlPayload::Payload(g) = msg.nl_payload() {
+            return Ok((nl_u16, g.clone()));
+        }
+    }
+    Err(anyhow::anyhow!("no generic-netlink payload in iterator"))
+}
+
