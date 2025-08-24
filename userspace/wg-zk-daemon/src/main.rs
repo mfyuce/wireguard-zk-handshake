@@ -62,50 +62,39 @@ async fn main() -> Result<()> {
         loop {
             match recv_next(&mut sock).await {
                 Ok((_nl_type, genl)) => {
-                    if let Some(ev) = try_parse_need_proof(&genl) {
-                        // Use per‑initiation token for dedup (best against races)
-                        let token = ev.token.unwrap_or(0) as u64;
-
-                        // de‑dup: if token already in-flight, skip
-                        {
-                            let mut set = inflight().await.lock().await;
-                            if !set.insert(token) {
-                                continue;
+                    if *genl.cmd() == WgzkCmd::NeedProof as u8 {
+                        if let Some(ev) = try_parse_need_proof(&genl) {
+                            // Use per‑initiation token for dedup (best against races)
+                            let token = ev.token.unwrap_or(0) as u64;
+                            let mut inflight1 = inflight().await.lock().await;
+                            if !inflight1.insert(token) {
+                                continue; // already in-flight
                             }
-                        }
+                            drop(inflight1);
 
-                        eprintln!(
-                            "[client] NEED_PROOF ifindex={} peer_id={} token={:?}",
-                            ev.ifindex, ev.peer_id, ev.token
-                        );
-
-                        // Produce (R,S) once
-                        let sk = SK.get().expect("WGZK_SK_HEX missing");
-                        let (r, s) = zk::prove(sk, b""); // keep 'extra' empty unless kernel pins a context
-
-                        // Send SET_PROOF and echo the token back to the kernel
-                        if let Err(e) = send_set_proof(
-                            &mut sock,
-                            family_id,
-                            ev.peer_id,
-                            ev.token,  // <-- echo back
-                            &r,
-                            &s,
-                        ).await {
-                            eprintln!("[client] send_set_proof error: {e:?}");
-                        } else {
                             eprintln!(
-                                "[client] SET_PROOF sent peer_id={} token={:?}",
-                                ev.peer_id, ev.token
+                                "[daemon] NEED_PROOF ifindex={} peer_id={} token={:?}",
+                                ev.ifindex, ev.peer_id, ev.token
                             );
-                        }
 
-                        // release guard
-                        inflight().await.lock().await.remove(&token);
+                            let sk = SK.get().expect("WGZK_SK_HEX missing");
+                            let (r, s) = zk::prove(sk, b"");
+
+                            if let Err(e) = send_set_proof(&mut sock, family_id, ev.peer_id, ev.token, &r, &s).await {
+                                eprintln!("[daemon] send_set_proof error: {e:?}");
+                            } else {
+                                eprintln!(
+                                    "[daemon] SET_PROOF sent peer_id={} token={:?}",
+                                    ev.peer_id, ev.token
+                                );
+                            }
+
+                            inflight().await.lock().await.remove(&token);
+                        }
                     }
                 }
                 Err(e) => {
-                    eprintln!("[client] recv error: {e:?}");
+                    eprintln!("[daemon] recv error: {e:?}");
                     sleep(Duration::from_millis(250)).await;
                 }
             }

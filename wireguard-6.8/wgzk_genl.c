@@ -191,11 +191,18 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
     zk_proof_set(peer_id, r, s);
     pr_info("WG-ZK: cached proof for peer_id=%llu\n",
             (unsigned long long)peer_id);
+//    /* Optional: try to re-send initiation proactively */
+//    {
+//        struct wg_peer *peer = wg_lookup_peer_by_internal_id(peer_id);
+//        if (peer)
+//            wg_packet_send_queued_handshake_initiation(peer, true);
+//    }
     return 0;
 }
 /* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
-static void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
-                                      u64 peer_id, const u8 *peer_pub, u32 token)
+void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
+                               u64 peer_id, const u8 *peer_pub, u32 token,
+                               const u8 r[32], const u8 s[32])
 {
     struct sk_buff *skb;
     void *hdr;
@@ -204,7 +211,7 @@ static void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
     if (!skb)
         return;
 
-    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0, WGZK_CMD_NEED_PROOF);
+    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0,  WGZK_CMD_NEED_PROOF);
     if (!hdr) { kfree_skb(skb); return; }
 
     nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex);
@@ -213,6 +220,9 @@ static void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
         nla_put(skb, WGZK_ATTR_PEER_PUB, 32, peer_pub);
     if (token)
         nla_put_u32(skb, WGZK_ATTR_TOKEN, token);
+
+    if (r) nla_put(skb, WGZK_ATTR_R, 32, r);
+    if (s) nla_put(skb, WGZK_ATTR_S, 32, s);
 
     genlmsg_end(skb, hdr);
     genlmsg_multicast_netns(&wgzk_genl_family, netns, skb,

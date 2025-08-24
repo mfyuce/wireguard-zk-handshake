@@ -33,8 +33,8 @@ pub enum WgzkCmd {
     SetProof = 2,
     NeedProof = 3,
 }
-pub const WGZK_CMD_NEED_PROOF: u8 = 1;
-pub const WGZK_CMD_SET_PROOF:  u8 = 2;
+// pub const WGZK_CMD_NEED_PROOF: u8 = 1;
+// pub const WGZK_CMD_SET_PROOF:  u8 = 2;
 #[repr(u16)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum WgzkAttr {

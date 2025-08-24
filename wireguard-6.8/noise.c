@@ -20,7 +20,7 @@
 #include "zk_pending.h"
 #include "zk_debugfs.h"
 #include "zk_proof.h"
-
+#include "wgzk_genl.h"
 
 /* This implements Noise_IKpsk2:
  *
@@ -587,12 +587,18 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 			u32 ifindex = wgd->dev->ifindex;
 			pr_info("WG-ZK: cache miss; requesting proof for peer_id=%llu (ifindex=%u)\n",
 					(unsigned long long)pid, ifindex);
-
+			u32 sender_index = le32_to_cpu(zkdst->sender_index);
 			/* Tell userspace to provide (R,S) */
-			wgzk_multicast_need_proof(dev_net(wgd->dev), ifindex, pid,
-									  handshake->remote_static, 0 /*token*/);
 
-
+			wgzk_multicast_need_proof(
+					dev_net(wgd->dev),
+					ifindex,
+					pid,
+					handshake->remote_static /* or s */,
+					sender_index,
+					zkdst->zk_r,
+					zkdst->zk_s
+			);
 			/* Do NOT send a broken ZK or classic; abort creation */
 			goto out;  /* ret=false; caller won't transmit */
         }
@@ -626,23 +632,6 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 	u8 t[NOISE_TIMESTAMP_LEN];
 	u64 initiation_consumption;
 
-	/* ZK hook: if this is a ZK handshake, short-circuit for user-space.
-	 * NOTE: header.type is little-endian; convert before comparing. */
-	if (le32_to_cpu(src->header.type) == MESSAGE_HANDSHAKE_INITIATION_ZK) {
-               const struct message_handshake_initiation_zk *zk = (const void *)src;
-               u32 sender_index = le32_to_cpu(zk->sender_index);
-
-               /* We don't resolve sender_index -> peer here.
-                * Defer to userspace; enqueue with NULL peer. */
-               zk_pending_add(sender_index, NULL, wg, zk, sizeof(*zk));
-               zk_debugfs_update(zk, sizeof(*zk)); /* expose raw ZK packet */
-
-               pr_info("WG-ZK: Handshake ZK init index=%u — awaiting proof\n",
-                       sender_index);
-
-               return ERR_PTR(-EAGAIN); /* defer response */
-    }
-
 
     // Normal (non-ZK) handshake below:
 	down_read(&wg->static_identity.lock);
@@ -668,6 +657,31 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 	if (!peer)
 		goto out;
 	handshake = &peer->handshake;
+/* ZK hook: if this is a ZK handshake, short-circuit for user-space.
+	 * NOTE: header.type is little-endian; convert before comparing. */
+	if (le32_to_cpu(src->header.type) == MESSAGE_HANDSHAKE_INITIATION_ZK) {
+		const struct message_handshake_initiation_zk *zk = (const void *)src;
+		u32 sender_index = le32_to_cpu(zk->sender_index);
+
+		/* We don't resolve sender_index -> peer here.
+         * Defer to userspace; enqueue with NULL peer. */
+		zk_pending_add(sender_index, peer, wg, zk, sizeof(*zk));
+		zk_debugfs_update(zk, sizeof(*zk)); /* expose raw ZK packet */
+
+		wgzk_multicast_need_proof(
+					dev_net(wg->dev),
+					wg->dev->ifindex,
+					peer->internal_id,
+					peer->handshake.remote_static /* or s */,
+					sender_index,
+					zk->zk_r,
+					zk->zk_s
+		);
+		pr_info("WG-ZK: Handshake ZK init index=%u — awaiting proof\n",
+				sender_index);
+
+		return ERR_PTR(-EAGAIN); /* defer response */
+	}
 
 	/* ss */
 	if (!mix_precomputed_dh(chaining_key, key,
