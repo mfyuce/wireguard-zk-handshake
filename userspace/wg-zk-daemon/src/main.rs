@@ -38,30 +38,47 @@ async fn load_keys() -> Result<()> {
 }
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
+
+    eprintln!( "[daemon] Starting" );
     // Load variables from .env file (if present)
     dotenv().ok();
+    eprintln!( "[daemon] Env loaded" );
     load_keys().await?;
+    eprintln!( "[daemon] Keys loaded" );
 
     inflight().await;
 
-    // connect + resolve + join
-    let mut sock = connect_genl().await?;
-    let resolved = resolve_family_and_groups(&mut sock, "wgzk").await?;
-    let events_gid = *resolved.mcast_groups.get("events")
-        .ok_or_else(|| anyhow::anyhow!("wgzk: 'events' multicast group missing"))?;
-    add_mcast(&sock, events_gid).await?;
-    // let family_id = resolved.family_id;
+    eprintln!( "[daemon] Inflight loaded" );
+
+    // // connect + resolve + join
+    // let mut sock = connect_genl().await?;
+    // let resolved = resolve_family_and_groups(&mut sock, "wgzk").await?;
+    // let events_gid = *resolved.mcast_groups.get("events")
+    //     .ok_or_else(|| anyhow::anyhow!("wgzk: 'events' multicast group missing"))?;
+    // add_mcast(&sock, events_gid).await?;
+    // // let family_id = resolved.family_id;
 
     // CLIENT TASK (NEED_PROOF → SET_PROOF)
     let client_task = tokio::spawn(async move {
+
+
+        eprintln!( "[daemon] Connecting to genl" );
+
         let mut sock = connect_genl().await.expect("genl connect (client)");
+
+        eprintln!( "[daemon] Connecting to wgzk" );
         let resolved = resolve_family_and_groups(&mut sock, "wgzk").await.expect("resolve wgzk");
+
+        eprintln!( "[daemon] Connecting to mcast" );
         add_mcast(&sock, *resolved.mcast_groups.get("events").unwrap()).await.expect("join events");
         let family_id = resolved.family_id;
 
+        eprintln!( "[daemon] Connecting to family_id" );
         loop {
             match recv_next(&mut sock).await {
                 Ok((_nl_type, genl)) => {
+
+                    eprintln!( "[daemon] Recv OK" );
                     if *genl.cmd() == WgzkCmd::NeedProof as u8 {
                         if let Some(ev) = try_parse_need_proof(&genl) {
                             // Use per‑initiation token for dedup (best against races)

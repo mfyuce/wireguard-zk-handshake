@@ -571,7 +571,7 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 	message_encrypt(dst->encrypted_timestamp, timestamp,
 			NOISE_TIMESTAMP_LEN, key, handshake->hash);
 
-    /* === ZK ek alanları doldur === */
+    /* === ZK alanları: varsa cache'ten doldur; yoksa USERSAPCE’e iste, abort et === */
     if (le32_to_cpu(dst->header.type) == MESSAGE_HANDSHAKE_INITIATION_ZK) {
         struct message_handshake_initiation_zk *zkdst = (void *)dst;
         u8 r[32], s[32];
@@ -585,21 +585,19 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 
 			struct wg_device *wgd = handshake->entry.peer->device;
 			u32 ifindex = wgd->dev->ifindex;
+			u32 sender_index = le32_to_cpu(zkdst->sender_index);
 			pr_info("WG-ZK: cache miss; requesting proof for peer_id=%llu (ifindex=%u)\n",
 					(unsigned long long)pid, ifindex);
-			u32 sender_index = le32_to_cpu(zkdst->sender_index);
-			/* Tell userspace to provide (R,S) */
+			/* R/S bilinmiyor → NULL geç. Daemon üretsin. */
 
 			wgzk_multicast_need_proof(
 					dev_net(wgd->dev),
 					ifindex,
 					pid,
-					handshake->remote_static /* or s */,
+					handshake->remote_static /* optional peer pub */,
 					sender_index,
-					zkdst->zk_r,
-					zkdst->zk_s
-			);
-			/* Do NOT send a broken ZK or classic; abort creation */
+					NULL, NULL);
+			/* KES: bozuk ZK veya klasik göndermiyoruz. */
 			goto out;  /* ret=false; caller won't transmit */
         }
     }

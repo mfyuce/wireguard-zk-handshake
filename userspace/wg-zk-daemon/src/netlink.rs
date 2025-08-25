@@ -24,6 +24,8 @@ use neli::consts::{
 use anyhow::{anyhow,  Result};
 use std::collections::HashMap;
 
+pub const WGZK_FAMILY: &str = "wgzk";
+pub const MC_GROUP_NAME: &str = "events";
 
 #[repr(u8)]
 #[derive(Copy, Clone)]
@@ -39,14 +41,14 @@ pub enum WgzkCmd {
 #[derive(Copy, Clone, PartialEq, Eq, Hash)]
 pub enum WgzkAttr {
     Unspec = 0,
-    PeerIndex = 1,
-    Result = 2,
-    PeerId = 3,
-    R = 4,
-    S = 5,
-    Ifindex = 6,
-    PeerPub = 7,
-    Token = 8,
+    PeerIndex  = 1, // u32
+    Result     = 2, // u8
+    PeerId     = 3, // u64
+    R          = 4, // [u8;32]
+    S          = 5, // [u8;32]
+    Ifindex    = 6, // u32
+    PeerPub    = 7, // [u8;32]
+    Token      = 8, // u32
 }
 impl From<u16> for WgzkAttr {
     fn from(v: u16) -> Self {
@@ -127,14 +129,15 @@ pub async fn resolve_family_and_groups(
     name: &str,
 ) -> Result<GenlResolved> {
     // GenlBuffer<CtrlAttr, Buffer>
-    let attrs: GenlBuffer<CtrlAttr, Buffer> = GenlBuffer::new();
+    let mut attrs: GenlBuffer<CtrlAttr, Buffer> = GenlBuffer::new();
 
     // NUL-terminated family name ("wgzk\0")
     let mut namez = Vec::with_capacity(name.len() + 1);
     namez.extend_from_slice(name.as_bytes());
     namez.push(0);
 
-    // attrs.push(nattr_ctrl(CtrlAttr::FamilyName, namez)?);
+    attrs.push(nattr_ctrl(CtrlAttr::FamilyName, namez)?);
+    //attrs.push(Nlattr::new(None, CtrlAttr::FamilyName, Buffer::from(namez))?);
 
     // CTRL_CMD_GETFAMILY v2 + ACK
     let genlhdr = GenlmsghdrBuilder::default()

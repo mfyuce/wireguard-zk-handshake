@@ -149,3 +149,21 @@ struct zk_pending_entry *zk_pending_take(u32 sender_index)
 
     return found ? entry : NULL;
 }
+
+void zk_pending_set_endpoint(u32 sender_index, const struct endpoint *ep)
+{
+    struct zk_pending_entry *entry;
+
+    if (!ep)
+        return;
+
+    spin_lock_bh(&zk_lock);
+    hash_for_each_possible(zk_pending_table, entry, node, sender_index) {
+        if (entry->sender_index == sender_index) {
+            memcpy(&entry->endpoint, ep, sizeof(*ep));
+            entry->has_ep = true;
+            break;
+        }
+    }
+    spin_unlock_bh(&zk_lock);
+}

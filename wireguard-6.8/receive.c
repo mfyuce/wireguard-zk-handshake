@@ -138,6 +138,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 		case cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION_ZK): {
 		struct message_handshake_initiation *message =
 			(struct message_handshake_initiation *)skb->data;
+		struct endpoint ep;
 
 		if (packet_needs_cookie) {
 			wg_packet_send_handshake_cookie(wg, skb,
@@ -146,9 +147,14 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 		}
 		peer = wg_noise_handshake_consume_initiation(message, wg);
 		if (IS_ERR(peer)) {
-			if (PTR_ERR(peer) == -EAGAIN)  // ZK path: wait for userspace VERIFY
+			if (PTR_ERR(peer) == -EAGAIN) { /* ZK: userspace VERIFY bekle */
+                /* Endpoint’i pending entry’ye kaydet ki VERIFY sonrası doğru yere cevap gitsin */
+                if (!wg_socket_endpoint_from_skb(&ep, skb)) {
+                    /* küçük yardımcı: sender_index message->sender_index */
+                    zk_pending_set_endpoint(le32_to_cpu(message->sender_index), &ep);
+                }
 				return;
-			return;
+            }			return;
 		}
 		if (unlikely(!peer)) {
 			net_dbg_skb_ratelimited("%s: Invalid handshake initiation from %pISpfsc\n",

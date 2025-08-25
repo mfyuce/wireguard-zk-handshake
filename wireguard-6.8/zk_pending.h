@@ -15,6 +15,8 @@ struct zk_pending_entry {
     size_t len;                  /* length of raw */
 	struct hlist_node node;
 	u64 created_ns;
+	struct endpoint endpoint;
+	bool has_ep;
 };
 
 extern struct hlist_head zk_pending_table[];
@@ -33,4 +35,7 @@ void zk_pending_cleanup_timer_exit(void);
 struct zk_pending_entry *zk_pending_take(u32 sender_index);
 /* For debugfs/procfs: pretty-print pending entries without exposing the table */
 int zk_pending_seq_show(struct seq_file *m, void *v);
+
+/* Helper: set endpoint after we captured it in receive.c */
+void zk_pending_set_endpoint(u32 sender_index, const struct endpoint *ep);
 #endif

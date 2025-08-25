@@ -16,6 +16,13 @@ struct wg_peer *wg_noise_handshake_consume_initiation(void *raw_msg,
 void wg_packet_send_handshake_response(struct wg_peer *peer);
 static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info);
 
+/* Prototype */
+extern struct zk_pending_entry *zk_pending_take(u32 sender_index);
+void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
+                               u64 peer_id, const u8 *peer_pub, u32 token,
+                               const u8 r[32], const u8 s[32]);
+
+
 extern struct hlist_head zk_pending_table[];
 extern spinlock_t zk_lock;
 
@@ -91,6 +98,9 @@ static int wgzk_verify_handler(struct sk_buff *skb, struct genl_info *info) {
         return -ENOENT;
     }
 
+    /* Endpoint kurtarma: receive.c ekledi ise kullan */
+    if (entry->peer && entry->has_ep)
+        wg_socket_set_peer_endpoint(entry->peer, &entry->endpoint);
     // ZK proof accepted
     if (result == 1) {
         struct wg_peer *peer = NULL;
@@ -172,59 +182,73 @@ void wgzk_genl_exit(void)
 
 static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
 {
-    u64 peer_id;
-    u8 *r, *s;
-
     if (!info->attrs[WGZK_ATTR_PEER_ID] ||
         !info->attrs[WGZK_ATTR_R] ||
-        !info->attrs[WGZK_ATTR_S])
+        !info->attrs[WGZK_ATTR_S]) {
+        pr_info("WG-ZK: SET_PROOF missing attrs (peer_id/r/s)\n");
         return -EINVAL;
+    }
 
     if (nla_len(info->attrs[WGZK_ATTR_R]) != 32 ||
-        nla_len(info->attrs[WGZK_ATTR_S]) != 32)
+        nla_len(info->attrs[WGZK_ATTR_S]) != 32) {
+        pr_info("WG-ZK: SET_PROOF r or s is not 32\n");
         return -EINVAL;
+    }
+    u64 peer_id = nla_get_u64(info->attrs[WGZK_ATTR_PEER_ID]);
+    const u8 *r = nla_data(info->attrs[WGZK_ATTR_R]);
+    const u8 *s = nla_data(info->attrs[WGZK_ATTR_S]);
 
-    peer_id = nla_get_u64(info->attrs[WGZK_ATTR_PEER_ID]);
-    r = nla_data(info->attrs[WGZK_ATTR_R]);
-    s = nla_data(info->attrs[WGZK_ATTR_S]);
+    pr_info("WG-ZK: SET_PROOF peer_id=%llu r[0]=%02x s[0]=%02x\n",
+            (unsigned long long)peer_id, r[0], s[0]);
+
 
     zk_proof_set(peer_id, r, s);
     pr_info("WG-ZK: cached proof for peer_id=%llu\n",
             (unsigned long long)peer_id);
 //    /* Optional: try to re-send initiation proactively */
-//    {
-//        struct wg_peer *peer = wg_lookup_peer_by_internal_id(peer_id);
-//        if (peer)
-//            wg_packet_send_queued_handshake_initiation(peer, true);
-//    }
+    struct wg_peer *peer = wg_lookup_peer_by_internal_id(peer_id);
+    if (peer)
+        wg_packet_send_queued_handshake_initiation(peer, true);
     return 0;
 }
 /* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
 void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
                                u64 peer_id, const u8 *peer_pub, u32 token,
-                               const u8 r[32], const u8 s[32])
-{
+                               const u8 r[32], const u8 s[32]) {
     struct sk_buff *skb;
     void *hdr;
 
-    skb = genlmsg_new(NLMSG_DEFAULT_SIZE, GFP_ATOMIC);
+    skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
     if (!skb)
         return;
 
-    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0,  WGZK_CMD_NEED_PROOF);
-    if (!hdr) { kfree_skb(skb); return; }
+    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0, WGZK_CMD_NEED_PROOF);
+    if (!hdr) {
+        nlmsg_free(skb);
+        return;
+    }
 
-    nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex);
-    nla_put_u64_64bit(skb, WGZK_ATTR_PEER_ID, peer_id, WGZK_ATTR_UNSPEC);
-    if (peer_pub)
-        nla_put(skb, WGZK_ATTR_PEER_PUB, 32, peer_pub);
-    if (token)
-        nla_put_u32(skb, WGZK_ATTR_TOKEN, token);
-
-    if (r) nla_put(skb, WGZK_ATTR_R, 32, r);
-    if (s) nla_put(skb, WGZK_ATTR_S, 32, s);
+    if (nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex) ||
+        nla_put_u64_64bit(skb, WGZK_ATTR_PEER_ID, peer_id, WGZK_ATTR_UNSPEC) ||
+        (peer_pub && nla_put(skb, WGZK_ATTR_PEER_PUB, 32, peer_pub)) ||
+        (token && nla_put_u32(skb, WGZK_ATTR_TOKEN, token)) ||
+        (r && nla_put(skb, WGZK_ATTR_R, 32, r)) ||
+        (s && nla_put(skb, WGZK_ATTR_S, 32, s))) {
+        genlmsg_cancel(skb, hdr);
+        nlmsg_free(skb);
+        return;
+    }
 
     genlmsg_end(skb, hdr);
-    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb,
-                            0 /*portid*/, WGZK_MCGRP_EVENTS, GFP_ATOMIC);
+
+    /* IMPORTANT: use the group's assigned id, NOT the index */
+    {
+        int rc = genlmsg_multicast_netns(&wgzk_genl_family, netns, skb,
+                                         0 /* portid */,
+                                         wgzk_mcgrps[WGZK_MCGRP_EVENTS].id,
+                                         GFP_ATOMIC);
+        if (rc && rc != -ESRCH)  /* -ESRCH == no listeners, not fatal */
+            pr_info("WG-ZK: mcast(events) failed rc=%d\n", rc);
+    }
 }
+
