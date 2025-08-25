@@ -16,6 +16,7 @@
 #include <linux/udp.h>
 #include <net/ip_tunnels.h>
 #include "zk_debugfs.h"
+#include "zk_pending.h"
 
 /* Must be called with bh disabled. */
 static void update_rx_stats(struct wg_peer *peer, size_t len)

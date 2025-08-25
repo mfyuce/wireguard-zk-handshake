@@ -82,5 +82,6 @@ void wg_peer_remove_all(struct wg_device *wg);
 
 int wg_peer_init(void);
 void wg_peer_uninit(void);
+struct wg_peer *wg_lookup_peer_by_internal_id(struct wg_device *wg, u64 internal_id);
 
 #endif /* _WG_PEER_H */

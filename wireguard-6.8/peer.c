@@ -237,3 +237,25 @@ void wg_peer_uninit(void)
 {
 	kmem_cache_destroy(peer_cache);
 }
+/* device içindeki peer listesini tarar, eşleşeni döndürür.
+ * Başarılıysa refcount +1 ile döner; kullanınca wg_peer_put() yap. */
+/* internal_id → wg_peer*
+ * Başarılı olursa refcount (+1) ile döner; işin bitince wg_peer_put(peer). */
+struct wg_peer *wg_lookup_peer_by_internal_id(struct wg_device *wg, u64 internal_id)
+{
+	struct wg_peer *peer, *ret = NULL;
+
+	rcu_read_lock_bh();
+	list_for_each_entry_rcu(peer, &wg->peer_list, peer_list) {
+		if (READ_ONCE(peer->is_dead))
+			continue;
+		if (READ_ONCE(peer->internal_id) == internal_id) {
+			if (wg_peer_get(peer))      /* ref al */
+				ret = peer;
+			break;
+		}
+	}
+	rcu_read_unlock_bh();
+
+	return ret; /* yoksa NULL */
+}

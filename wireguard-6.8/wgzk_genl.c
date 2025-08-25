@@ -5,9 +5,11 @@
 #include <net/genetlink.h>
 
 #include "peer.h"
+#include "socket.h"
 #include "zk_pending.h"
 #include "wgzk_genl.h"
 #include "zk_proof.h"
+#include "queueing.h"
 // + include for ifindex helper
 #include <linux/netdevice.h>
 
@@ -184,8 +186,9 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
 {
     if (!info->attrs[WGZK_ATTR_PEER_ID] ||
         !info->attrs[WGZK_ATTR_R] ||
-        !info->attrs[WGZK_ATTR_S]) {
-        pr_info("WG-ZK: SET_PROOF missing attrs (peer_id/r/s)\n");
+        !info->attrs[WGZK_ATTR_S] ||
++        !info->attrs[WGZK_ATTR_IFINDEX]) {
+        pr_info("WG-ZK: SET_PROOF missing attrs (peer_id/r/s/ifindex)\n");
         return -EINVAL;
     }
 
@@ -194,10 +197,11 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
         pr_info("WG-ZK: SET_PROOF r or s is not 32\n");
         return -EINVAL;
     }
-    u64 peer_id = nla_get_u64(info->attrs[WGZK_ATTR_PEER_ID]);
-    const u8 *r = nla_data(info->attrs[WGZK_ATTR_R]);
-    const u8 *s = nla_data(info->attrs[WGZK_ATTR_S]);
 
+    u64 peer_id      = nla_get_u64(info->attrs[WGZK_ATTR_PEER_ID]);
+    const u8 *r      = nla_data(info->attrs[WGZK_ATTR_R]);
+    const u8 *s      = nla_data(info->attrs[WGZK_ATTR_S]);
+    u32 ifindex      = nla_get_u32(info->attrs[WGZK_ATTR_IFINDEX]);
     pr_info("WG-ZK: SET_PROOF peer_id=%llu r[0]=%02x s[0]=%02x\n",
             (unsigned long long)peer_id, r[0], s[0]);
 
@@ -206,9 +210,26 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
     pr_info("WG-ZK: cached proof for peer_id=%llu\n",
             (unsigned long long)peer_id);
 //    /* Optional: try to re-send initiation proactively */
-    struct wg_peer *peer = wg_lookup_peer_by_internal_id(peer_id);
-    if (peer)
-        wg_packet_send_queued_handshake_initiation(peer, true);
+    /* Retry’i doğru wg_device üstünden tetikle */
+    {
+        struct net *netns = genl_info_net(info);
+        struct net_device *ndev = dev_get_by_index(netns, ifindex);
+        if (!ndev) {
+            pr_info("WG-ZK: SET_PROOF bad ifindex=%u\n", ifindex);
+            return 0;
+        }
+        /* wireguard net_device → wg_device* */
+        struct wg_device *wg = netdev_priv(ndev);
+        struct wg_peer *peer = wg_lookup_peer_by_internal_id(wg, peer_id);
+        if (peer) {
+            wg_packet_send_queued_handshake_initiation(peer, true);
+            wg_peer_put(peer);
+        } else {
+            pr_info("WG-ZK: peer not found for internal_id=%llu (ifindex=%u)\n",
+                    (unsigned long long)peer_id, ifindex);
+        }
+        dev_put(ndev);
+    }
     return 0;
 }
 /* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
@@ -245,8 +266,9 @@ void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
     {
         int rc = genlmsg_multicast_netns(&wgzk_genl_family, netns, skb,
                                          0 /* portid */,
-                                         wgzk_mcgrps[WGZK_MCGRP_EVENTS].id,
+                                         WGZK_MCGRP_EVENTS,
                                          GFP_ATOMIC);
+        pr_info("WG-ZK: mcast netns=%p grp.index=%d rc=%d\n", netns, WGZK_MCGRP_EVENTS, rc);
         if (rc && rc != -ESRCH)  /* -ESRCH == no listeners, not fatal */
             pr_info("WG-ZK: mcast(events) failed rc=%d\n", rc);
     }
