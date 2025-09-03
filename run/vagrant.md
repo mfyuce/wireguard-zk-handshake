@@ -35,8 +35,8 @@ sudo modprobe ip6_udp_tunnel
 sudo modprobe chacha20poly1305
 sudo modprobe gcm
 sudo modprobe aes_generic
-modprobe aesni_intel
-modprobe af_alg
+sudo modprobe aesni_intel
+sudo modprobe af_alg
 
 #sudo modprobe wireguard   # or:
 sudo insmod /lib/modules/$(uname -r)/extra/wireguard.ko
