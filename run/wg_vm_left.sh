@@ -6,7 +6,7 @@
 #   sudo ./wg_vm_left.sh iperf-client   # runs client toward RIGHT's dummy
 #   sudo ./wg_vm_left.sh down
 set -euo pipefail
-
+set -x
 # ---------- EDIT THESE ----------
 PEER_ENDPOINT="10.0.2.7:51921"   # RIGHT VM's reachable underlay IP:port (UDP)
 LISTEN_PORT=51821                  # LEFT WG listen port
@@ -27,24 +27,24 @@ KEY_PUB="publeft0"
 PEER_PUB_FILE="pubright0"     # <-- copy RIGHT's pubkey here (from right.pub)
 
 copy() {
-  sudo modprobe -r wireguard
-  sudo install -D -m 644 "/home/m/wireguard.ko"  /lib/modules/$(uname -r)/extra/wireguard.ko
-  sudo insmod /lib/modules/$(uname -r)/extra/wireguard.ko
-  sudo modprobe libchacha20poly1305
-  sudo modprobe libcurve25519
-  sudo modprobe udp_tunnel
-  sudo modprobe ip6_udp_tunnel
-  sudo modprobe curve25519-x86_64
-  sudo modprobe libcurve25519-generic
-  sudo modprobe libchacha20poly1305
-  sudo modprobe udp_tunnel
-  sudo modprobe ip6_udp_tunnel
-  sudo modprobe chacha20poly1305
-  sudo modprobe gcm
-  sudo modprobe aes_generic
-  sudo modprobe aesni_intel
-  sudo modprobe af_alg
-  sudo insmod /lib/modules/$(uname -r)/extra/wireguard.ko
+  modprobe -r wireguard
+  install -D -m 644 "/home/m/wireguard.ko"  /lib/modules/$(uname -r)/extra/wireguard.ko
+  insmod /lib/modules/$(uname -r)/extra/wireguard.ko
+  modprobe libchacha20poly1305
+  modprobe libcurve25519
+  modprobe udp_tunnel
+  modprobe ip6_udp_tunnel
+  modprobe curve25519-x86_64
+  modprobe libcurve25519-generic
+  modprobe libchacha20poly1305
+  modprobe udp_tunnel
+  modprobe ip6_udp_tunnel
+  modprobe chacha20poly1305
+  modprobe gcm
+  modprobe aes_generic
+  modprobe aesni_intel
+  modprobe af_alg
+  insmod /lib/modules/$(uname -r)/extra/wireguard.ko
 }
 ensure_keys() {
   umask 077
@@ -111,16 +111,16 @@ down() {
 }
 
 iperf_server() {
-  #copy
-  #up
+  copy
+  up
   echo 1 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
   echo "Starting iperf3 server on $DUM_HOST"
   iperf3 -s -B "$DUM_HOST" --forceflush --interval 1
 }
 
 iperf_client() {
-  #copy
-  #up
+  copy
+  up
   echo 0 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
   # Talk to RIGHT dummy from LEFT dummy; ensure RIGHT has server running
   echo "Running iperf3 client: src=$DUM_HOST dst=10.20.10.10"
