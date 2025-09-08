@@ -1,6 +1,7 @@
 #include <linux/spinlock.h>
 #include <linux/hashtable.h>
 #include <linux/slab.h>
+#include <linux/gfp.h>
 #include <linux/timer.h>
 #include <linux/ktime.h>
 #include <linux/jiffies.h>
@@ -51,7 +52,7 @@ void zk_pending_add(u32 sender_index, struct wg_peer *peer,
 	// Cleanup before adding
 	zk_pending_cleanup_expired();
 
-	e = kmalloc(sizeof(*e), GFP_KERNEL);
+    e = kzalloc(sizeof(*e), GFP_ATOMIC);
     if (!e)
         return;
 
@@ -78,6 +79,7 @@ struct wg_peer *zk_pending_get(u32 sender_index)
     hash_for_each_possible(zk_pending_table, entry, node, sender_index) {
         if (entry->sender_index == sender_index) {
 			hash_del(&entry->node);
+            atomic_dec(&zk_pending_count);
             peer = entry->peer;
             kfree(entry->raw);
             kfree(entry);

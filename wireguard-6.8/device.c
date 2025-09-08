@@ -27,6 +27,7 @@
 #include <net/addrconf.h>
 #include "zk_debugfs.h"
 #include "wgzk_genl.h"
+#include "zk_pending.h"
 
 
 static LIST_HEAD(device_list);
@@ -383,6 +384,8 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	 */
 	dev->priv_destructor = wg_destruct;
 
+	wgzk_debugfs_add_device(wg);
+
 	pr_debug("%s: Interface created\n", dev->name);
 	return ret;
 
@@ -457,6 +460,9 @@ int __init wg_device_init(void)
 	if (ret)
 		goto error_vm;
 
+    /* Start background GC for WG-ZK pending table */
+    zk_pending_init_cleanup_timer();
+
 	ret = rtnl_link_register(&link_ops);
 	if (ret)
 		goto error_pernet;
@@ -478,6 +484,7 @@ error_pm:
 
 void wg_device_uninit(void)
 {
+	zk_pending_cleanup_timer_exit();
 	rtnl_link_unregister(&link_ops);
 	unregister_pernet_device(&pernet_ops);
 	unregister_random_vmfork_notifier(&vm_notifier);

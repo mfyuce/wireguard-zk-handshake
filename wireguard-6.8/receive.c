@@ -17,6 +17,7 @@
 #include <net/ip_tunnels.h>
 #include "zk_debugfs.h"
 #include "zk_pending.h"
+#include "wgzk_genl.h"
 
 /* Must be called with bh disabled. */
 static void update_rx_stats(struct wg_peer *peer, size_t len)
@@ -153,6 +154,11 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 			if (IS_ERR(peer) && PTR_ERR(peer) == -EAGAIN) {
 				if (!wg_socket_endpoint_from_skb(&ep, skb))
 					zk_pending_set_endpoint(le32_to_cpu(message->sender_index), &ep);
+                /* NEW: tell userspace to verify this handshake */
+                wgzk_multicast_need_verify(dev_net(wg->dev),
+                                           wg->dev->ifindex,
+                                           le32_to_cpu(message->sender_index),
+                                           0 /* token, optional */);
 				return;  /* don’t continue until userspace VERIFY */
 			}
 		} else {

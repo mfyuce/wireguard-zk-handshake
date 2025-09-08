@@ -8,6 +8,5 @@
 
 int zk_debugfs_init(struct dentry *parent);
 void zk_debugfs_cleanup(void);
-void zk_debugfs_update(const void *msg, size_t len);
-void zk_publish_handshake(const u8 in96[96]);
+int wgzk_debugfs_add_device(struct wg_device *wg);
 #endif /* WG_ZK_DEBUGFS_H */

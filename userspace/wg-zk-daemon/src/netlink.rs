@@ -34,6 +34,8 @@ pub enum WgzkCmd {
     Verify = 1,
     SetProof = 2,
     NeedProof = 3,
+    SetVerify = 4,     // new: userspace → kernel result for verify
+    NeedVerify = 5,    // new: kernel → userspace ask to verify
 }
 // pub const WGZK_CMD_NEED_PROOF: u8 = 1;
 // pub const WGZK_CMD_SET_PROOF:  u8 = 2;
@@ -280,7 +282,37 @@ pub async fn send_set_proof(
     // ACK beklemeden gönder—kernel başarısız olursa bir sonraki NEED_PROOF tekrar tetiklenecek.
     Ok(())
 }
+/* ---------------- server: NEED_VERIFY event ---------------- */
+pub struct NeedVerifyEvent {
+    pub ifindex: u32,
+    pub sender_index: u32,
+    pub token: Option<u32>,
+}
 
+pub fn try_parse_need_verify(genl: &Genlmsghdr<u8, u16>) -> Option<NeedVerifyEvent> {
+    if *genl.cmd() != WgzkCmd::NeedVerify as u8 { return None; }
+    let mut ifindex: Option<u32> = None;
+    let mut sender_index: Option<u32> = None;
+    let mut token: Option<u32> = None;
+    for a in genl.attrs().iter() {
+        match WgzkAttr::from(*a.nla_type().nla_type()) {
+            WgzkAttr::Ifindex => {
+                let b = a.payload(); let bytes: [u8;4] = b.as_ref().try_into().ok()?;
+                ifindex = Some(u32::from_le_bytes(bytes));
+            }
+            WgzkAttr::PeerIndex => {
+                let b = a.payload(); let bytes: [u8;4] = b.as_ref().try_into().ok()?;
+                sender_index = Some(u32::from_le_bytes(bytes));
+            }
+            WgzkAttr::Token => {
+                let b = a.payload(); let bytes: [u8;4] = b.as_ref().try_into().ok()?;
+                token = Some(u32::from_le_bytes(bytes));
+            }
+            _ => {}
+        }
+    }
+    Some(NeedVerifyEvent { ifindex: ifindex?, sender_index: sender_index?, token })
+}
 pub async fn send_verify(
     sock: &mut NlSocketHandle,
     family_id: u16,
@@ -306,6 +338,30 @@ pub async fn send_verify(
     Ok(())
 }
 
+/// New: SET_VERIFY mirrors VERIFY payload (PeerIndex, Result) but uses a
+/// distinct command so kernel can track the “userspace verify” path.
+pub async fn send_set_verify(
+    sock: &mut NlSocketHandle,
+    family_id: u16,
+    sender_index: u32,
+    result: u8,
+) -> Result<()> {
+    let mut attrs: GenlBuffer<u16, Buffer> = GenlBuffer::new();
+    attrs.push(nattr_u16(WgzkAttr::PeerIndex as u16, sender_index.to_le_bytes().to_vec())?);
+    attrs.push(nattr_u16(WgzkAttr::Result as u16, vec![result])?);
+    let genlhdr = GenlmsghdrBuilder::default()
+        .cmd(WgzkCmd::SetVerify as u8)
+        .version(1)
+        .attrs(attrs)
+        .build()?;
+    let req: Nlmsghdr<u16, Genlmsghdr<u8, u16>> = NlmsghdrBuilder::default()
+        .nl_type(family_id)
+        .nl_flags(NlmF::REQUEST | NlmF::ACK)
+        .nl_payload(NlPayload::Payload(genlhdr))
+        .build()?;
+    sock.send(&req).await?;
+    Ok(())
+}
 /* ---------------- receiver ---------------- */
 
 pub struct NeedProofEvent {

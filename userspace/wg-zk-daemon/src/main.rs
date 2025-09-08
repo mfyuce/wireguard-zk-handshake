@@ -169,47 +169,47 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
-async fn run_gateway_once()  -> Result<()>{
+async fn run_gateway_once() -> Result<()> {
+    use anyhow::anyhow;
     let mut sock = connect_genl().await?;
     let resolved = resolve_family_and_groups(&mut sock, "wgzk").await?;
+    let events_gid = *resolved
+        .mcast_groups
+        .get("events")
+        .ok_or_else(|| anyhow!("wgzk: 'events' multicast group missing"))?;
+    add_mcast(&sock, events_gid).await?;
     let family_id = resolved.family_id;
 
     let hand_path = Path::new("/sys/kernel/debug/wireguard/zk_handshake");
-    let pend_path = Path::new("/sys/kernel/debug/wireguard/zk_pending");
 
     loop {
-
-        let mut pending = String::new();
-        if let Ok(mut f) = File::open(pend_path).await { let _ = f.read_to_string(&mut pending).await; }
-        let sender_index = pending
-            .lines()
-            .skip_while(|l| !l.starts_with("Index"))
-            .nth(1)
-            .and_then(|line| line.split_whitespace().next())
-            .and_then(|s| s.parse::<u32>().ok());
-
-        if let Some(idx) = sender_index {
-            eprintln!("[server] index");
-            let mut raw = vec![0u8; 96];
+        let (_nl_type, genl) = recv_next(&mut sock).await?;
+        // 1) still support NEED_PROOF (clients behind this same binary)
+        if *genl.cmd() == WgzkCmd::NeedProof as u8 {
+            // no change to your client path here
+            continue;
+        }
+        // 2) new NEED_VERIFY → SET_VERIFY path
+        if let Some(ev) = try_parse_need_verify(&genl) {
+            // pull R,S once from debugfs snapshot prepared by kernel
+            let mut raw = [0u8; 96];
             if let Ok(mut f) = File::open(hand_path).await {
                 let _ = f.read_exact(&mut raw).await;
             }
-            let pk = PK.get().unwrap();
+            let pk = match PK.get() {
+                Some(pk) => pk,
+                None => { eprintln!("[gateway] PK not set; cannot verify"); continue; }
+            };
             let mut r = [0u8; 32];
             let mut s = [0u8; 32];
-            if raw.len() >= 96 {
-                r.copy_from_slice(&raw[32..64]);
-                s.copy_from_slice(&raw[64..96]);
-            }
-
+            r.copy_from_slice(&raw[32..64]);
+            s.copy_from_slice(&raw[64..96]);
             let ok = zk::verify(pk, &r, &s, b"");
-            if let Err(e) = send_verify(&mut sock, family_id, idx, if ok { 1 } else { 0 }).await {
-                eprintln!("[server] VERIFY send error: {e:?}");
+            if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 0 }).await {
+                eprintln!("[gateway] SET_VERIFY send error: {e:?}");
             } else {
-                eprintln!("[server] VERIFY idx={} result={}", idx, ok);
+                eprintln!("[gateway] SET_VERIFY idx={} result={}", ev.sender_index, ok);
             }
-
-            sleep(Duration::from_millis(200)).await;
         }
     }
 }

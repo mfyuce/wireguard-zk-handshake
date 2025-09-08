@@ -10,13 +10,31 @@
 #include "wgzk_genl.h"
 #include "zk_proof.h"
 #include "queueing.h"
-// + include for ifindex helper
+//include for ifindex helper
 #include <linux/netdevice.h>
 
 struct wg_peer *wg_noise_handshake_consume_initiation(void *raw_msg,
                                                       struct wg_device *wg);
 void wg_packet_send_handshake_response(struct wg_peer *peer);
 static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info);
+
+static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info);
+/* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
+void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
+                               u64 peer_id, const u8 *peer_pub, u32 token,
+                               const u8 r[32], const u8 s[32]);
+
+/* Alias handler for SET_VERIFY (same payload as old VERIFY) */
+static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info);
+
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, TOKEN?} */
+void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
+                                u32 sender_index, u32 token);
+
+
+
+
+
 
 /* Prototype */
 extern struct zk_pending_entry *zk_pending_take(u32 sender_index);
@@ -51,9 +69,11 @@ enum {
 //
 enum {
     WGZK_CMD_UNSPEC,
-	WGZK_CMD_VERIFY,
+	WGZK_CMD_VERIFY,       /* (legacy) userspace -> kernel verdict */
     WGZK_CMD_SET_PROOF,
-    WGZK_CMD_NEED_PROOF,   /* multicast event */
+    WGZK_CMD_NEED_PROOF,   /* kernel -> userspace (client generate) */
+    WGZK_CMD_SET_VERIFY,   /* userspace -> kernel verdict (new name) */
+    WGZK_CMD_NEED_VERIFY,  /* kernel -> userspace (gateway verify) */
     __WGZK_CMD_MAX,
 };
 #define WGZK_CMD_MAX (__WGZK_CMD_MAX - 1)
@@ -115,6 +135,7 @@ static int wgzk_verify_handler(struct sk_buff *skb, struct genl_info *info) {
         }
         if (!IS_ERR(peer) && peer) {
             wg_packet_send_handshake_response(peer);
+            wg_peer_put(peer);
             net_dbg_ratelimited("WG-ZK: Proof accepted; response sent to %pISpf (idx=%u)\n",
                                 &peer->endpoint.addr, sender_index);
         } else {
@@ -141,6 +162,12 @@ static const struct genl_ops wgzk_genl_ops[] = {
 		.policy = wgzk_genl_policy,
 		.doit = wgzk_verify_handler,
 	},
+    {
+        .cmd = WGZK_CMD_SET_VERIFY,
+        .flags = 0,
+        .policy = wgzk_genl_policy,
+        .doit = wgzk_set_verify_handler,
+    },
     {
         .cmd = WGZK_CMD_SET_PROOF,
         .flags = 0,
@@ -195,7 +222,7 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
     if (!info->attrs[WGZK_ATTR_PEER_ID] ||
         !info->attrs[WGZK_ATTR_R] ||
         !info->attrs[WGZK_ATTR_S] ||
-+        !info->attrs[WGZK_ATTR_IFINDEX]) {
+        !info->attrs[WGZK_ATTR_IFINDEX]) {
         pr_info("WG-ZK: SET_PROOF missing attrs (peer_id/r/s/ifindex)\n");
         return -EINVAL;
     }
@@ -285,3 +312,38 @@ void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
     }
 }
 
+/* Alias handler for SET_VERIFY (same payload as old VERIFY) */
+static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info)
+{
+    return wgzk_verify_handler(skb, info);
+}
+
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, TOKEN?} */
+void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
+                                u32 sender_index, u32 token)
+{
+    struct sk_buff *skb;
+    void *hdr;
+
+    if (!netns)
+        netns = &init_net;
+
+    skb = genlmsg_new(NLMSG_GOODSIZE, GFP_ATOMIC);
+    if (!skb)
+        return;
+
+    hdr = genlmsg_put(skb, 0, 0, &wgzk_genl_family, 0, WGZK_CMD_NEED_VERIFY);
+    if (!hdr) {
+        kfree_skb(skb);
+        return;
+    }
+    nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex);
+    nla_put_u32(skb, WGZK_ATTR_PEER_INDEX, sender_index);
+    if (token)
+        nla_put_u32(skb, WGZK_ATTR_TOKEN, token);
+    genlmsg_end(skb, hdr);
+
+    /* same mcgrp as other events */
+    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb, 0,
+                            WGZK_MCGRP_EVENTS, GFP_ATOMIC);
+}

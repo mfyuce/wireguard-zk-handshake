@@ -661,11 +661,6 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 		const struct message_handshake_initiation_zk *zk = (const void *)src;
 		u32 sender_index = le32_to_cpu(zk->sender_index);
 
-		/* We don't resolve sender_index -> peer here.
-         * Defer to userspace; enqueue with NULL peer. */
-		zk_pending_add(sender_index, peer, wg, zk, sizeof(*zk));
-		zk_debugfs_update(zk, sizeof(*zk)); /* expose raw ZK packet */
-
 		wgzk_multicast_need_proof(
 					dev_net(wg->dev),
 					wg->dev->ifindex,
