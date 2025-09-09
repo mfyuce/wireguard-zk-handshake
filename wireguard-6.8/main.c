@@ -17,44 +17,15 @@
 #include <linux/genetlink.h>
 #include <net/rtnetlink.h>
 
-#include "zk_debugfs.h"
 #include "zk_pending.h"
 #include "wgzk_genl.h"
-#include "zk_procfs.h"
 
-static struct dentry *wg_dbg_dir;  // module-global
-static struct dentry *get_wireguard_root(void)
-{
-	struct dentry *root;
 
-	/* Prefer reusing existing /sys/kernel/debug/wireguard */
-	root = debugfs_lookup("wireguard", NULL);
-	if (root)
-		return root;
-
-	/* Otherwise create it (first user wins) */
-	root = debugfs_create_dir("wireguard", NULL);
-	if (IS_ERR(root)) {
-		if (PTR_ERR(root) == -EEXIST)
-			return debugfs_lookup("wireguard", NULL);
-		return NULL; /* debugfs disabled or real error – proceed without */
-	}
-	return root;
-}
 static int __init wg_mod_init(void)
 {
 	int ret;
-	wg_dbg_dir = get_wireguard_root();
-
-	if (!wg_dbg_dir) {
-		pr_info("wgzk: debugfs not available; continuing without\n");
-		return 0; /* don’t fail module load because of debugfs */
-	}
-	/* create our ZK debugfs dir at the root (NULL parent) */
-	zk_debugfs_init(wg_dbg_dir);
 
 	wgzk_genl_init();
-	zk_procfs_init();
 
 	ret = wg_allowedips_slab_init();
 	if (ret < 0)
@@ -103,20 +74,14 @@ static void __exit wg_mod_exit(void)
 	wg_allowedips_slab_uninit();
 
 	wgzk_genl_exit();
-    zk_debugfs_cleanup();
 
-	if (wg_dbg_dir) {
-		debugfs_remove_recursive(wg_dbg_dir);
-		wg_dbg_dir = NULL;
-	}
     zk_pending_cleanup_timer_exit();
-    zk_procfs_exit();
 }
 
 module_init(wg_mod_init);
 module_exit(wg_mod_exit);
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("WireGuard secure network tunnel");
+MODULE_DESCRIPTION("WireGuard secure network tunnel - zk");
 MODULE_AUTHOR("Jason A. Donenfeld <Jason@zx2c4.com>");
 MODULE_VERSION(WIREGUARD_VERSION);
 MODULE_ALIAS_RTNL_LINK(KBUILD_MODNAME);

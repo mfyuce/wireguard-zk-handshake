@@ -37,28 +37,11 @@ async fn load_keys() -> Result<()> {
     }
     Ok(())
 }
-// 1) Helper: read kernel role flag (if available)
-fn zk_require_proof_debugfs() -> Option<bool> {
-    use std::{fs, io::Read};
-    for iface in ["wg0","wg1","wg2"] {
-        let p = format!("/sys/kernel/debug/wireguard/{}/zk_require_proof", iface);
-        if let Ok(mut f) = fs::File::open(&p) {
-            let mut s = String::new();
-            if f.read_to_string(&mut s).is_ok() {
-                return Some(s.trim().starts_with('1'));
-            }
-        }
-    }
-    None
-}
 
 // 2) Decide mode robustly
 fn decide_mode() -> &'static str {
     if let Ok(m) = std::env::var("WGZK_MODE") {
         return if m.eq_ignore_ascii_case("client") { "client" } else { "gateway" };
-    }
-    if let Some(req) = zk_require_proof_debugfs() {
-        return if req { "gateway" } else { "client" };
     }
     // default to client if nothing tells us otherwise
     "client"
@@ -103,7 +86,7 @@ async fn main() -> Result<()> {
 
 
     // CLIENT TASK (NEED_PROOF → SET_PROOF)
-    let client_task = if mode.eq_ignore_ascii_case("client") {
+    let client_task =
         Some(tokio::spawn(async move {
             loop {
                 match run_client_once().await {
@@ -117,11 +100,10 @@ async fn main() -> Result<()> {
                     }
                 };
             }
-        }))
-    } else { None };
+        })) ;
 
     // SERVER TASK (debugfs → VERIFY)
-    let server_task = if mode.eq_ignore_ascii_case("gateway") {
+    let server_task =
         Some(tokio::spawn(async move {
             loop {
                 match run_gateway_once().await {
@@ -131,18 +113,27 @@ async fn main() -> Result<()> {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
+                match run_client_once().await {
+                    Ok(_) => {
+                        // run_client_once returns only on controlled shutdown; keep alive
+                        tokio::time::sleep(Duration::from_millis(500)).await;
+                    }
+                    Err(e) => {
+                        eprintln!("[client] loop error: {e:?} (retrying in 1s)");
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                    }
+                };
             }
-        }))
-    } else { None };
+        })) ;
 
 
-    let client_join = async {
-        if let Some(t) = client_task {
-            let _ = t.await;
-        } else {
-            pending::<()>().await; // hiçbir zaman dönmez
-        }
-    };
+    // let client_join = async {
+    //     if let Some(t) = client_task {
+    //         let _ = t.await;
+    //     } else {
+    //         pending::<()>().await; // hiçbir zaman dönmez
+    //     }
+    // };
 
     let server_join = async {
         if let Some(t) = server_task {
@@ -153,7 +144,7 @@ async fn main() -> Result<()> {
     };
 
     tokio::select! {
-    _ = client_join => {},
+    // _ = client_join => {},
     _ = server_join => {},
     _ = tokio::signal::ctrl_c() => { eprintln!("[daemon] shutdown"); }
     }
@@ -180,7 +171,7 @@ async fn run_gateway_once() -> Result<()> {
     add_mcast(&sock, events_gid).await?;
     let family_id = resolved.family_id;
 
-    let hand_path = Path::new("/sys/kernel/debug/wireguard/zk_handshake");
+    // let hand_path = Path::new("/sys/kernel/debug/wireguard/zk_handshake");
 
     loop {
         let (_nl_type, genl) = recv_next(&mut sock).await?;
@@ -193,9 +184,9 @@ async fn run_gateway_once() -> Result<()> {
         if let Some(ev) = try_parse_need_verify(&genl) {
             // pull R,S once from debugfs snapshot prepared by kernel
             let mut raw = [0u8; 96];
-            if let Ok(mut f) = File::open(hand_path).await {
-                let _ = f.read_exact(&mut raw).await;
-            }
+            // if let Ok(mut f) = File::open(hand_path).await {
+            //     let _ = f.read_exact(&mut raw).await;
+            // }
             let pk = match PK.get() {
                 Some(pk) => pk,
                 None => { eprintln!("[gateway] PK not set; cannot verify"); continue; }
@@ -205,7 +196,7 @@ async fn run_gateway_once() -> Result<()> {
             r.copy_from_slice(&raw[32..64]);
             s.copy_from_slice(&raw[64..96]);
             let ok = zk::verify(pk, &r, &s, b"");
-            if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 0 }).await {
+            if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 1 }).await {
                 eprintln!("[gateway] SET_VERIFY send error: {e:?}");
             } else {
                 eprintln!("[gateway] SET_VERIFY idx={} result={}", ev.sender_index, ok);

@@ -204,7 +204,7 @@ int wgzk_genl_init(void)
         return ret;
     }
     wgzk_genl_registered = true;
-    pr_info("WG-ZK: Generic Netlink interface registered (old API)\n");
+    pr_info("WG-ZK: Generic Netlink interface registered\n");
     return 0;
 }
 
@@ -344,6 +344,8 @@ void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
     genlmsg_end(skb, hdr);
 
     /* same mcgrp as other events */
-    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb, 0,
-                            WGZK_MCGRP_EVENTS, GFP_ATOMIC);
+//    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb, 0,
+//                            WGZK_MCGRP_EVENTS, GFP_ATOMIC);
+    genlmsg_multicast_allns(&wgzk_genl_family, skb, 0,
+                            WGZK_MCGRP_EVENTS);
 }

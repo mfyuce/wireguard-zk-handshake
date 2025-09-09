@@ -18,7 +18,6 @@
 #include <crypto/utils.h>
 
 #include "zk_pending.h"
-#include "zk_debugfs.h"
 #include "zk_proof.h"
 #include "wgzk_genl.h"
 
@@ -571,6 +570,10 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 	message_encrypt(dst->encrypted_timestamp, timestamp,
 			NOISE_TIMESTAMP_LEN, key, handshake->hash);
 
+	dst->sender_index = wg_index_hashtable_insert(
+			handshake->entry.peer->device->index_hashtable,
+			&handshake->entry);
+
     /* === ZK alanları: varsa cache'ten doldur; yoksa USERSAPCE’e iste, abort et === */
     if (le32_to_cpu(dst->header.type) == MESSAGE_HANDSHAKE_INITIATION_ZK) {
         struct message_handshake_initiation_zk *zkdst = (void *)dst;
@@ -598,12 +601,9 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 					sender_index,
 					NULL, NULL);
 			/* KES: bozuk ZK veya klasik göndermiyoruz. */
-			goto out;  /* ret=false; caller won't transmit */
+//			goto out;  /* ret=false; caller won't transmit */
         }
     }
-	dst->sender_index = wg_index_hashtable_insert(
-		handshake->entry.peer->device->index_hashtable,
-		&handshake->entry);
 
 	handshake->state = HANDSHAKE_CREATED_INITIATION;
 	ret = true;
@@ -661,16 +661,15 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 		const struct message_handshake_initiation_zk *zk = (const void *)src;
 		u32 sender_index = le32_to_cpu(zk->sender_index);
 
-		wgzk_multicast_need_proof(
-					dev_net(wg->dev),
-					wg->dev->ifindex,
-					peer->internal_id,
-					peer->handshake.remote_static /* or s */,
-					sender_index,
-					zk->zk_r,
-					zk->zk_s
-		);
-		pr_info("WG-ZK: Handshake ZK init index=%u — awaiting proof\n",
+        zk_pending_add(sender_index,
+                       wg_peer_get_maybe_zero(peer), /* keep a ref */
+                       wg,
+                       src, sizeof(*zk));
+		wgzk_multicast_need_verify(dev_net(wg->dev),
+								   wg->dev->ifindex,
+								   le32_to_cpu(sender_index),
+								   0 /* token, optional */);
+		pr_info("WG-ZK: Handshake ZK init index=%u — zk_pending_add\n",
 				sender_index);
 
 		return ERR_PTR(-EAGAIN); /* defer response */

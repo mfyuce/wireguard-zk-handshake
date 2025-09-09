@@ -15,7 +15,6 @@
 #include <linux/ipv6.h>
 #include <linux/udp.h>
 #include <net/ip_tunnels.h>
-#include "zk_debugfs.h"
 #include "zk_pending.h"
 #include "wgzk_genl.h"
 
@@ -148,23 +147,18 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
 			return;
 		}
 		/* === ZK mode hook === */
-		if (wg->zk_require_proof) {
-			/* Gateway role: demand ZK verification */
-			peer = wg_noise_handshake_consume_initiation(message, wg);
-			if (IS_ERR(peer) && PTR_ERR(peer) == -EAGAIN) {
-				if (!wg_socket_endpoint_from_skb(&ep, skb))
-					zk_pending_set_endpoint(le32_to_cpu(message->sender_index), &ep);
-                /* NEW: tell userspace to verify this handshake */
-                wgzk_multicast_need_verify(dev_net(wg->dev),
-                                           wg->dev->ifindex,
-                                           le32_to_cpu(message->sender_index),
-                                           0 /* token, optional */);
-				return;  /* don’t continue until userspace VERIFY */
-			}
-		} else {
-			/* Client role: proceed without proof requirement */
-			peer = wg_noise_handshake_consume_initiation(message, wg);
-		}
+        /* Gateway role: demand ZK verification */
+        peer = wg_noise_handshake_consume_initiation(message, wg);
+        if (IS_ERR(peer) && PTR_ERR(peer) == -EAGAIN) {
+            if (!wg_socket_endpoint_from_skb(&ep, skb))
+                zk_pending_set_endpoint(le32_to_cpu(message->sender_index), &ep);
+            /* NEW: tell userspace to verify this handshake */
+            wgzk_multicast_need_verify(dev_net(wg->dev),
+                                       wg->dev->ifindex,
+                                       le32_to_cpu(message->sender_index),
+                                       0 /* token, optional */);
+            return;  /* don’t continue until userspace VERIFY */
+        }
 		if (IS_ERR(peer)) {
 			if (PTR_ERR(peer) == -EAGAIN) { /* ZK: userspace VERIFY bekle */
                 /* Endpoint’i pending entry’ye kaydet ki VERIFY sonrası doğru yere cevap gitsin */

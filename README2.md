@@ -57,8 +57,8 @@ cat /proc/net/genetlink | grep -A2 wgzk
 
 
 scp -P 2223 /home/fatihyuce/work/projects/tmp/enes/wireguard-zk-handshake/tmp/linux-signed-hwe-6.8-6.8.0/linux-hwe-6.8-6.8.0/drivers/net/wireguard/wireguard.ko m@127.0.0.1:/home/m/
-scp -P 2222 /home/fatihyuce/work/projects/tmp/enes/wireguard-zk-handshake/tmp/linux-signed-hwe-6.8-6.8.0/linux-hwe-6.8-6.8.0/drivers/net/wireguard/wireguard.ko m@127.0.0.1:/home/m/
-
 scp -P 2223 /home/fatihyuce/work/projects/tmp/enes/wireguard-zk-handshake/userspace/wg-zk-daemon/target/debug/wg-zk-daemon m@127.0.0.1:/home/m/
+
 scp -P 2222 /home/fatihyuce/work/projects/tmp/enes/wireguard-zk-handshake/userspace/wg-zk-daemon/target/debug/wg-zk-daemon m@127.0.0.1:/home/m/
+scp -P 2222 /home/fatihyuce/work/projects/tmp/enes/wireguard-zk-handshake/tmp/linux-signed-hwe-6.8-6.8.0/linux-hwe-6.8-6.8.0/drivers/net/wireguard/wireguard.ko m@127.0.0.1:/home/m/
 

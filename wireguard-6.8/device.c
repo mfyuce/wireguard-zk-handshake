@@ -25,7 +25,6 @@
 #include <net/rtnetlink.h>
 #include <net/ip_tunnels.h>
 #include <net/addrconf.h>
-#include "zk_debugfs.h"
 #include "wgzk_genl.h"
 #include "zk_pending.h"
 
@@ -383,8 +382,6 @@ static int wg_newlink(struct net *src_net, struct net_device *dev,
 	 * register_netdevice doesn't call it for us if it fails.
 	 */
 	dev->priv_destructor = wg_destruct;
-
-	wgzk_debugfs_add_device(wg);
 
 	pr_debug("%s: Interface created\n", dev->name);
 	return ret;

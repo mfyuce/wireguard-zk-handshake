@@ -113,7 +113,7 @@ down() {
 iperf_server() {
   copy
   up
-  echo 1 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
+#  echo 1 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
   echo "Starting iperf3 server on $DUM_HOST"
   iperf3 -s -B "$DUM_HOST" --forceflush --interval 1
 }
@@ -121,7 +121,7 @@ iperf_server() {
 iperf_client() {
   copy
   up
-  echo 0 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
+#  echo 0 > sudo tee /sys/kernel/debug/wireguard/zk_require_proof
   # Talk to RIGHT dummy from LEFT dummy; ensure RIGHT has server running
   echo "Running iperf3 client: src=$DUM_HOST dst=10.20.10.10"
   iperf3 -c 10.20.10.10 -B "$DUM_HOST" -t 20 -P 1 -M 1310 --interval 1
