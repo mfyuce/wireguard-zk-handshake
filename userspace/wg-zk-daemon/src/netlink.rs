@@ -105,7 +105,10 @@ pub async fn connect_genl() -> Result<NlSocketHandle> {
 }
 
 pub async fn add_mcast(sock: &NlSocketHandle, grp_id: u32) -> Result<()> {
-    // 0.7.x API: new_groups()
+    eprintln!("[wgzk] subscribing to multicast group id={}", grp_id);
+    if grp_id == 0 {
+        return Err(anyhow!("multicast group id is 0 — family may not be registered"));
+    }
     sock.add_mcast_membership(Groups::new_groups(&[grp_id]))?;
     Ok(())
 }
@@ -286,6 +289,8 @@ pub async fn send_set_proof(
 pub struct NeedVerifyEvent {
     pub ifindex: u32,
     pub sender_index: u32,
+    pub r: [u8; 32],
+    pub s: [u8; 32],
     pub token: Option<u32>,
 }
 
@@ -293,6 +298,8 @@ pub fn try_parse_need_verify(genl: &Genlmsghdr<u8, u16>) -> Option<NeedVerifyEve
     if *genl.cmd() != WgzkCmd::NeedVerify as u8 { return None; }
     let mut ifindex: Option<u32> = None;
     let mut sender_index: Option<u32> = None;
+    let mut r: Option<[u8; 32]> = None;
+    let mut s: Option<[u8; 32]> = None;
     let mut token: Option<u32> = None;
     for a in genl.attrs().iter() {
         match WgzkAttr::from(*a.nla_type().nla_type()) {
@@ -304,6 +311,22 @@ pub fn try_parse_need_verify(genl: &Genlmsghdr<u8, u16>) -> Option<NeedVerifyEve
                 let b = a.payload(); let bytes: [u8;4] = b.as_ref().try_into().ok()?;
                 sender_index = Some(u32::from_le_bytes(bytes));
             }
+            WgzkAttr::R => {
+                let p = a.payload();
+                if p.as_ref().len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(p.as_ref());
+                    r = Some(arr);
+                }
+            }
+            WgzkAttr::S => {
+                let p = a.payload();
+                if p.as_ref().len() == 32 {
+                    let mut arr = [0u8; 32];
+                    arr.copy_from_slice(p.as_ref());
+                    s = Some(arr);
+                }
+            }
             WgzkAttr::Token => {
                 let b = a.payload(); let bytes: [u8;4] = b.as_ref().try_into().ok()?;
                 token = Some(u32::from_le_bytes(bytes));
@@ -311,7 +334,13 @@ pub fn try_parse_need_verify(genl: &Genlmsghdr<u8, u16>) -> Option<NeedVerifyEve
             _ => {}
         }
     }
-    Some(NeedVerifyEvent { ifindex: ifindex?, sender_index: sender_index?, token })
+    Some(NeedVerifyEvent {
+        ifindex: ifindex?,
+        sender_index: sender_index?,
+        r: r?,
+        s: s?,
+        token,
+    })
 }
 pub async fn send_verify(
     sock: &mut NlSocketHandle,
@@ -429,36 +458,31 @@ pub async fn recv_next(
     sock: &mut neli::socket::asynchronous::NlSocketHandle,
 ) -> anyhow::Result<(u16, neli::genl::Genlmsghdr<u8, u16>)> {
     use neli::{consts::nl::NlTypeWrapper, nl::NlPayload};
-    use neli::consts::nl::Nlmsg;
 
-    let (iter, _groups) = sock.recv::<NlTypeWrapper, Genlmsghdr<u8, u16>>().await?;
+    loop {
+        let (iter, _groups) = sock.recv::<NlTypeWrapper, Genlmsghdr<u8, u16>>().await?;
 
-    eprintln!("[wgzk] recv worked");
+        for msg in iter {
+            let msg = msg?;
+            let nl_u16: u16 = (*msg.nl_type()).into();
 
-    for msg in iter {
-        eprintln!( "[daemon] recevied sth" );
-        let msg = msg?;                       // Nlmsghdr<_, _>
-        let nlw = *msg.nl_type();             // NlTypeWrapper
-        let nl_u16: u16 = nlw.into();         // -> u16
-
-        match Nlmsg::from(nl_u16) {
-            Nlmsg::Noop => {
-                eprintln!( "[daemon] recevied sth" );
-                continue
-            },
-            Nlmsg::Error => {
-                eprintln!( "[daemon] recevied sth" );
-                return Err(anyhow::anyhow!("netlink error frame"))
-            },
-            _ => {
-                eprintln!( "[daemon] recevied other" );
+            match msg.nl_payload() {
+                NlPayload::Ack(_) => {
+                    // ACK from one of our REQUEST|ACK sends — ignore and keep waiting
+                    continue;
+                }
+                NlPayload::Err(e) => {
+                    eprintln!("[daemon] netlink error: {}", e);
+                    // Treat as non-fatal: log and continue listening
+                    continue;
+                }
+                NlPayload::Payload(g) => {
+                    return Ok((nl_u16, g.clone()));
+                }
+                _ => continue,
             }
         }
-
-        if let NlPayload::Payload(g) = msg.nl_payload() {
-            return Ok((nl_u16, g.clone()));
-        }
+        // Iterator exhausted without a payload — loop back and recv again
     }
-    Err(anyhow::anyhow!("no generic-netlink payload in iterator"))
 }
 

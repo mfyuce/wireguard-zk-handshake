@@ -11,7 +11,8 @@ void wgzk_genl_exit(void);
 void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
                                u64 peer_id, const u8 *peer_pub, u32 token,
                                const u8 r[32], const u8 s[32]);
-/* Gateway verify flow: kernel -> userspace */
+/* Gateway verify flow: kernel -> userspace (r/s are the ZK proof from the packet) */
 void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
-                                u32 sender_index, u32 token);
+                                u32 sender_index, u32 token,
+                                const u8 r[32], const u8 s[32]);
 #endif /* _WGZK_GENL_H */

@@ -45,3 +45,25 @@ pub fn parse_pk_hex(hex32: &str) -> anyhow::Result<[u8; 32]> {
     if b.len() != 32 { anyhow::bail!("public must be 32 bytes hex"); }
     Ok(b.as_slice().try_into().unwrap())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use getrandom::fill;
+
+    #[test]
+    fn prove_verify_roundtrip() {
+        let sk_hex = "852d598bbbf3a329d4366e0a592f520a33a36f398dd7a9793f4917f58daf3f09";
+        let pk_hex = "bb62278f97fb18e0e61918a7c0f9d77f0d9f0c90c326af6c16be6b71d3b73cb1";
+        let sk = parse_sk_hex(sk_hex).unwrap();
+        let pk = parse_pk_hex(pk_hex).unwrap();
+
+        // verify PK matches SK
+        let computed_pk = (&G * &sk).compress().to_bytes();
+        assert_eq!(computed_pk, pk, "PK does not match SK!");
+
+        // prove/verify
+        let (r, s) = prove(&sk, b"");
+        assert!(verify(&pk, &r, &s, b""), "verify failed!");
+    }
+}

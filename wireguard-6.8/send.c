@@ -20,7 +20,7 @@
 
 static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 {
-	struct message_handshake_initiation packet;
+	struct message_handshake_initiation_zk packet;
 
 	if (!wg_birthdate_has_expired(atomic64_read(&peer->last_sent_handshake),
 				      REKEY_TIMEOUT))
@@ -31,7 +31,10 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 			    peer->device->dev->name, peer->internal_id,
 			    &peer->endpoint.addr);
 
-	if (wg_noise_handshake_create_initiation(&packet, &peer->handshake)) {
+	memset(&packet, 0, sizeof(packet));
+	if (wg_noise_handshake_create_initiation(
+			(struct message_handshake_initiation *)&packet,
+			&peer->handshake)) {
 		wg_cookie_add_mac_to_packet(&packet, sizeof(packet), peer);
 		wg_timers_any_authenticated_packet_traversal(peer);
 		wg_timers_any_authenticated_packet_sent(peer);
@@ -40,6 +43,12 @@ static void wg_packet_send_handshake_initiation(struct wg_peer *peer)
 		wg_socket_send_buffer_to_peer(peer, &packet, sizeof(packet),
 					      HANDSHAKE_DSCP);
 		wg_timers_handshake_initiated(peer);
+	} else {
+		/* ZK cache miss: reset rate-limiter so SET_PROOF can immediately
+		 * re-trigger wg_packet_send_queued_handshake_initiation without
+		 * waiting REKEY_TIMEOUT seconds.
+		 */
+		atomic64_set(&peer->last_sent_handshake, 0);
 	}
 }
 

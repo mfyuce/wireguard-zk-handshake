@@ -60,12 +60,3 @@ bool zk_proof_get_and_clear(u64 peer_id, u8 r[32], u8 s[32])
     spin_unlock_irqrestore(&zk_proof_lock, flags);
     return ok;
 }
-//static int wgzk_set_proof_handler(...) {
-//    peer_id = nla_get_u64(info->attrs[WGZK_ATTR_PEER_ID]);
-//    r = nla_data(info->attrs[WGZK_ATTR_R]);
-//    s = nla_data(info->attrs[WGZK_ATTR_S]);
-//
-//    zk_proof_set(peer_id, r, s);
-//    pr_info("WG-ZK: cached proof for peer_id=%llu\n", peer_id);
-//    return 0;
-//}

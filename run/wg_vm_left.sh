@@ -60,6 +60,7 @@ ensure_keys() {
 }
 
 rp_off() {
+  sysctl -w net.ipv4.conf.all.rp_filter=0 >/dev/null || true
   for IF in "$WG_IF" "$DUM_IF"; do
     sysctl -w "net.ipv4.conf.${IF}.rp_filter=0" >/dev/null || true
   done

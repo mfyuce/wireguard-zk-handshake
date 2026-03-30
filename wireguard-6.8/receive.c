@@ -34,10 +34,12 @@ static size_t validate_header_len(struct sk_buff *skb)
 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_DATA) &&
 	    skb->len >= MESSAGE_MINIMUM_LENGTH)
 		return sizeof(struct message_data);
-	if ((SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION)
-			|| SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION_ZK))  &&
+	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION) &&
 	    skb->len == sizeof(struct message_handshake_initiation))
 		return sizeof(struct message_handshake_initiation);
+	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_INITIATION_ZK) &&
+	    skb->len == sizeof(struct message_handshake_initiation_zk))
+		return sizeof(struct message_handshake_initiation_zk);
 	if (SKB_TYPE_LE32(skb) == cpu_to_le32(MESSAGE_HANDSHAKE_RESPONSE) &&
 	    skb->len == sizeof(struct message_handshake_response))
 		return sizeof(struct message_handshake_response);
@@ -152,11 +154,7 @@ static void wg_receive_handshake_packet(struct wg_device *wg,
         if (IS_ERR(peer) && PTR_ERR(peer) == -EAGAIN) {
             if (!wg_socket_endpoint_from_skb(&ep, skb))
                 zk_pending_set_endpoint(le32_to_cpu(message->sender_index), &ep);
-            /* NEW: tell userspace to verify this handshake */
-            wgzk_multicast_need_verify(dev_net(wg->dev),
-                                       wg->dev->ifindex,
-                                       le32_to_cpu(message->sender_index),
-                                       0 /* token, optional */);
+            /* noise.c already multicasts NEED_VERIFY with r/s */
             return;  /* don’t continue until userspace VERIFY */
         }
 		if (IS_ERR(peer)) {

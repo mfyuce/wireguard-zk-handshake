@@ -17,8 +17,6 @@ struct wg_peer *wg_noise_handshake_consume_initiation(void *raw_msg,
                                                       struct wg_device *wg);
 void wg_packet_send_handshake_response(struct wg_peer *peer);
 static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info);
-
-static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info);
 /* Multicast NEED_PROOF{IFINDEX, PEER_ID, PEER_PUB?, TOKEN?} */
 void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
                                u64 peer_id, const u8 *peer_pub, u32 token,
@@ -27,9 +25,10 @@ void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
 /* Alias handler for SET_VERIFY (same payload as old VERIFY) */
 static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info);
 
-/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, TOKEN?} */
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?} */
 void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
-                                u32 sender_index, u32 token);
+                                u32 sender_index, u32 token,
+                                const u8 r[32], const u8 s[32]);
 
 
 
@@ -318,9 +317,10 @@ static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info)
     return wgzk_verify_handler(skb, info);
 }
 
-/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, TOKEN?} */
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?} */
 void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
-                                u32 sender_index, u32 token)
+                                u32 sender_index, u32 token,
+                                const u8 r[32], const u8 s[32])
 {
     struct sk_buff *skb;
     void *hdr;
@@ -337,15 +337,17 @@ void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
         kfree_skb(skb);
         return;
     }
-    nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex);
-    nla_put_u32(skb, WGZK_ATTR_PEER_INDEX, sender_index);
-    if (token)
-        nla_put_u32(skb, WGZK_ATTR_TOKEN, token);
+    if (nla_put_u32(skb, WGZK_ATTR_IFINDEX, ifindex) ||
+        nla_put_u32(skb, WGZK_ATTR_PEER_INDEX, sender_index) ||
+        nla_put(skb, WGZK_ATTR_R, 32, r) ||
+        nla_put(skb, WGZK_ATTR_S, 32, s) ||
+        (token && nla_put_u32(skb, WGZK_ATTR_TOKEN, token))) {
+        genlmsg_cancel(skb, hdr);
+        nlmsg_free(skb);
+        return;
+    }
     genlmsg_end(skb, hdr);
 
-    /* same mcgrp as other events */
-//    genlmsg_multicast_netns(&wgzk_genl_family, netns, skb, 0,
-//                            WGZK_MCGRP_EVENTS, GFP_ATOMIC);
     genlmsg_multicast_allns(&wgzk_genl_family, skb, 0,
                             WGZK_MCGRP_EVENTS);
 }

@@ -1,7 +1,6 @@
 use futures::future::pending;
 use anyhow::Result;
-use std::path::Path;
-use tokio::{fs::File, io::AsyncReadExt, time::{sleep, Duration}};
+use tokio::time::{sleep, Duration};
 use std::collections::HashSet;
 use tokio::sync::{Mutex, OnceCell};
 
@@ -102,7 +101,7 @@ async fn main() -> Result<()> {
             }
         })) ;
 
-    // SERVER TASK (debugfs → VERIFY)
+    // GATEWAY TASK (NEED_VERIFY → SET_VERIFY)
     let server_task =
         Some(tokio::spawn(async move {
             loop {
@@ -113,40 +112,30 @@ async fn main() -> Result<()> {
                         tokio::time::sleep(Duration::from_secs(1)).await;
                     }
                 }
-                match run_client_once().await {
-                    Ok(_) => {
-                        // run_client_once returns only on controlled shutdown; keep alive
-                        tokio::time::sleep(Duration::from_millis(500)).await;
-                    }
-                    Err(e) => {
-                        eprintln!("[client] loop error: {e:?} (retrying in 1s)");
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                    }
-                };
             }
-        })) ;
+        }));
 
 
-    // let client_join = async {
-    //     if let Some(t) = client_task {
-    //         let _ = t.await;
-    //     } else {
-    //         pending::<()>().await; // hiçbir zaman dönmez
-    //     }
-    // };
+    let client_join = async {
+        if let Some(t) = client_task {
+            let _ = t.await;
+        } else {
+            pending::<()>().await;
+        }
+    };
 
     let server_join = async {
         if let Some(t) = server_task {
             let _ = t.await;
         } else {
-            pending::<()>().await; // hiçbir zaman dönmez
+            pending::<()>().await;
         }
     };
 
     tokio::select! {
-    // _ = client_join => {},
-    _ = server_join => {},
-    _ = tokio::signal::ctrl_c() => { eprintln!("[daemon] shutdown"); }
+        _ = client_join => {},
+        _ = server_join => {},
+        _ = tokio::signal::ctrl_c() => { eprintln!("[daemon] shutdown"); }
     }
 
     // tokio::select! {
@@ -182,21 +171,14 @@ async fn run_gateway_once() -> Result<()> {
         }
         // 2) new NEED_VERIFY → SET_VERIFY path
         if let Some(ev) = try_parse_need_verify(&genl) {
-            // pull R,S once from debugfs snapshot prepared by kernel
-            let mut raw = [0u8; 96];
-            // if let Ok(mut f) = File::open(hand_path).await {
-            //     let _ = f.read_exact(&mut raw).await;
-            // }
             let pk = match PK.get() {
                 Some(pk) => pk,
                 None => { eprintln!("[gateway] PK not set; cannot verify"); continue; }
             };
-            let mut r = [0u8; 32];
-            let mut s = [0u8; 32];
-            r.copy_from_slice(&raw[32..64]);
-            s.copy_from_slice(&raw[64..96]);
-            let ok = zk::verify(pk, &r, &s, b"");
-            if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 1 }).await {
+            eprintln!("[gateway] r={} s={}", hex::encode(ev.r), hex::encode(ev.s));
+            let ok = zk::verify(pk, &ev.r, &ev.s, b"");
+            eprintln!("[gateway] verify result={ok} idx={}", ev.sender_index);
+            if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 0 }).await {
                 eprintln!("[gateway] SET_VERIFY send error: {e:?}");
             } else {
                 eprintln!("[gateway] SET_VERIFY idx={} result={}", ev.sender_index, ok);
@@ -256,6 +238,7 @@ async fn run_client_once()  -> Result<()>{
                             continue;
                         };
                         let (r, s) = zk::prove(sk, b"");
+                        eprintln!("[client] proving r={} s={}", hex::encode(r), hex::encode(s));
 
                         if let Err(e) = send_set_proof(&mut sock, family_id, ev.peer_id, ev.token, &r, &s, ev.ifindex).await {
                             eprintln!("[daemon] send_set_proof error: {e:?}");

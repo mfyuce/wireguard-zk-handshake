@@ -600,8 +600,8 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
 					handshake->remote_static /* optional peer pub */,
 					sender_index,
 					NULL, NULL);
-			/* KES: bozuk ZK veya klasik göndermiyoruz. */
-//			goto out;  /* ret=false; caller won't transmit */
+			/* Abort: wait for userspace to provide proof via SET_PROOF, then retry */
+			goto out;
         }
     }
 
@@ -668,7 +668,8 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 		wgzk_multicast_need_verify(dev_net(wg->dev),
 								   wg->dev->ifindex,
 								   le32_to_cpu(sender_index),
-								   0 /* token, optional */);
+								   0 /* token, optional */,
+								   zk->zk_r, zk->zk_s);
 		pr_info("WG-ZK: Handshake ZK init index=%u — zk_pending_add\n",
 				sender_index);
 
