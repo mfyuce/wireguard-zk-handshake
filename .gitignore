@@ -10,8 +10,10 @@
 wireguard.mod.c
 wireguard.mod
 /tmp/**
-target/**
+**/target/
 Cargo.lock
+.config
+*.txt
 vagrant/keys/
 .vagrant/
 vagrant/wgzk-base.box
