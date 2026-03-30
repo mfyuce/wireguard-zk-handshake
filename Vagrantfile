@@ -23,8 +23,8 @@ BASE_BOX   = "wgzk-base"
 
 Vagrant.configure("2") do |config|
   config.vm.box = BASE_BOX
-  # No synced folder needed — binaries are already baked into the box
-  config.vm.synced_folder ".", "/vagrant", disabled: true
+  # Synced folder: .ko and daemon are copied from host on each vagrant up
+  config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
 
   config.vm.provider "virtualbox" do |vb|
     vb.memory = 512

@@ -1,9 +1,11 @@
 #!/bin/bash
-# Load the pre-installed wireguard.ko (baked into the base box).
+# Copy wireguard.ko from host (via /vagrant) and load it.
+# Runs on every "vagrant up" so code changes on host take effect immediately.
 set -euo pipefail
 
 KERNEL="6.8.0-59-generic"
-KO="/lib/modules/${KERNEL}/extra/wireguard.ko"
+KO_SRC="/vagrant/wireguard-6.8/wireguard.ko"
+KO_DST="/lib/modules/${KERNEL}/extra/wireguard.ko"
 
 echo "==> Kernel: $(uname -r)"
 if [ "$(uname -r)" != "$KERNEL" ]; then
@@ -12,9 +14,13 @@ if [ "$(uname -r)" != "$KERNEL" ]; then
     exit 1
 fi
 
-[ -f "$KO" ] || { echo "ERROR: $KO not found — base box not built correctly"; exit 1; }
+if [ ! -f "$KO_SRC" ]; then
+    echo "ERROR: $KO_SRC not found."
+    echo "       Build on host: cd wireguard-6.8 && make -C /lib/modules/${KERNEL}/build M=\$(pwd) modules"
+    exit 1
+fi
 
-# Remove stock wireguard if present
+# Remove previously loaded wireguard (stock or old custom)
 rmmod wireguard 2>/dev/null || true
 
 # Load dependencies (order matters — same as README)
@@ -24,7 +30,9 @@ for mod in libchacha20poly1305 libcurve25519 udp_tunnel ip6_udp_tunnel \
     modprobe "$mod" 2>/dev/null || true
 done
 
-insmod "$KO"
+# Install and load the fresh .ko from host
+install -D -m 644 "$KO_SRC" "$KO_DST"
+insmod "$KO_DST"
 
 if grep -q wgzk /proc/net/genetlink; then
     echo "==> wireguard.ko loaded OK — wgzk genl registered"
