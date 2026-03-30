@@ -9,6 +9,7 @@ ed25519-dalek = "2.2.0"
 blake2 = "0.10.6"
 rand = "0.9.2"
 sha2 = "0.10.9"
+hmac = "0.12"
 hex = "0.4.3"
 neli = { version = "0.7.1", features = ["sync","default","netfilter","tokio","async","parking_lot"] }
 anyhow = "1.0.99"

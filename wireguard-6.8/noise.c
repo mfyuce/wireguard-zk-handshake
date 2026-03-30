@@ -577,13 +577,14 @@ wg_noise_handshake_create_initiation(struct message_handshake_initiation *dst,
     /* === ZK alanları: varsa cache'ten doldur; yoksa USERSAPCE’e iste, abort et === */
     if (le32_to_cpu(dst->header.type) == MESSAGE_HANDSHAKE_INITIATION_ZK) {
         struct message_handshake_initiation_zk *zkdst = (void *)dst;
-        u8 r[32], s[32];
+        u8 r[32], s[32], nonce[32];
         u64 pid = handshake->entry.peer->internal_id;
-        if (zk_proof_get_and_clear(pid, r, s)) {
-			pr_info("WG-ZK: using cached proof for peer_id=%llu\n",
-					(unsigned long long)pid);
+        if (zk_proof_get_and_clear(pid, r, s, nonce)) {
+			pr_info("WG-ZK: using cached proof for peer_id=%llu nonce[0]=%02x\n",
+					(unsigned long long)pid, nonce[0]);
             memcpy(zkdst->zk_r, r, 32);
             memcpy(zkdst->zk_s, s, 32);
+            memcpy(zkdst->zk_nonce, nonce, 32);
         } else {
 
 			struct wg_device *wgd = handshake->entry.peer->device;
@@ -669,7 +670,8 @@ wg_noise_handshake_consume_initiation(void *raw_msg, struct wg_device *wg)
 								   wg->dev->ifindex,
 								   le32_to_cpu(sender_index),
 								   0 /* token, optional */,
-								   zk->zk_r, zk->zk_s);
+								   zk->zk_r, zk->zk_s,
+								   zk->zk_nonce);
 		pr_info("WG-ZK: Handshake ZK init index=%u — zk_pending_add\n",
 				sender_index);
 

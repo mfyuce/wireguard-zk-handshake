@@ -175,8 +175,9 @@ async fn run_gateway_once() -> Result<()> {
                 Some(pk) => pk,
                 None => { eprintln!("[gateway] PK not set; cannot verify"); continue; }
             };
-            eprintln!("[gateway] r={} s={}", hex::encode(ev.r), hex::encode(ev.s));
-            let ok = zk::verify(pk, &ev.r, &ev.s, b"");
+            eprintln!("[gateway] r={} s={} nonce={}",
+                hex::encode(ev.r), hex::encode(ev.s), hex::encode(ev.session_nonce));
+            let ok = zk::verify(pk, &ev.r, &ev.s, &ev.session_nonce);
             eprintln!("[gateway] verify result={ok} idx={}", ev.sender_index);
             if let Err(e) = send_set_verify(&mut sock, family_id, ev.sender_index, if ok { 1 } else { 0 }).await {
                 eprintln!("[gateway] SET_VERIFY send error: {e:?}");
@@ -237,10 +238,13 @@ async fn run_client_once()  -> Result<()>{
                             eprintln!("[client] SK not set; cannot produce proof yet");
                             continue;
                         };
-                        let (r, s) = zk::prove(sk, b"");
-                        eprintln!("[client] proving r={} s={}", hex::encode(r), hex::encode(s));
+                        // Schnorr++: fresh session nonce for transcript binding
+                        let session_nonce = zk::gen_session_nonce();
+                        let (r, s) = zk::prove(sk, &session_nonce);
+                        eprintln!("[client] proving r={} s={} nonce={}",
+                            hex::encode(r), hex::encode(s), hex::encode(session_nonce));
 
-                        if let Err(e) = send_set_proof(&mut sock, family_id, ev.peer_id, ev.token, &r, &s, ev.ifindex).await {
+                        if let Err(e) = send_set_proof(&mut sock, family_id, ev.peer_id, ev.token, &r, &s, ev.ifindex, &session_nonce).await {
                             eprintln!("[daemon] send_set_proof error: {e:?}");
                         } else {
                             eprintln!(

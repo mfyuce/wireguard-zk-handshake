@@ -1,38 +1,80 @@
 use curve25519_dalek::{
-    constants::ED25519_BASEPOINT_POINT as G,
-    edwards::{CompressedEdwardsY, EdwardsPoint},
+    constants::RISTRETTO_BASEPOINT_POINT as G,
+    ristretto::{CompressedRistretto, RistrettoPoint},
     scalar::Scalar,
 };
 use getrandom::fill;
+use hmac::{Hmac, Mac};
 use sha2::{Digest, Sha512};
 
+type HmacSha512 = Hmac<Sha512>;
+
+/// Domain-separated Fiat-Shamir challenge.
+/// c = SHA-512("WGZK-v1/schnorr-ristretto255" ‖ R_compressed ‖ session_nonce) mod ℓ
 #[inline]
-fn challenge(R: &EdwardsPoint, extra: &[u8]) -> Scalar {
+fn challenge(r_point: &RistrettoPoint, session_nonce: &[u8]) -> Scalar {
     let mut h = Sha512::new();
-    h.update(b"WGZK-v1/schnorr-ed25519");
-    h.update(R.compress().as_bytes());
-    h.update(extra);
+    h.update(b"WGZK-v1/schnorr-ristretto255");
+    h.update(r_point.compress().as_bytes());
+    h.update(session_nonce);
     Scalar::from_hash(h)
 }
 
-pub fn prove(sk_x: &Scalar, extra: &[u8]) -> ([u8; 32], [u8; 32]) {
-    // r = H(rand64) mod l
-    let mut buf = [0u8; 64];
-    fill(&mut buf).expect("rng");
-    let r = Scalar::from_bytes_mod_order_wide(&buf);
-    let R = &G * &r;
-    let c = challenge(&R, extra);
-    let s = r + c * sk_x;
-    (R.compress().to_bytes(), s.to_bytes())
+/// Schnorr++ measure 2: hedged nonce.
+/// r = HMAC-SHA512(sk_bytes, "WGZK-v1/hedged-nonce" ‖ OSRAND_64) mod ℓ
+///
+/// Combining secret-key material with fresh OS randomness provides resilience
+/// against both RNG failures (deterministic component) and fault attacks
+/// (random component).
+fn hedged_nonce(sk_bytes: &[u8; 32]) -> Scalar {
+    const SALT: &[u8] = b"WGZK-v1/hedged-nonce";
+    let mut osrand = [0u8; 64];
+    fill(&mut osrand).expect("rng");
+
+    let mut mac = HmacSha512::new_from_slice(sk_bytes).expect("valid hmac key");
+    mac.update(SALT);
+    mac.update(&osrand);
+    let tag = mac.finalize().into_bytes();
+
+    let mut wide = [0u8; 64];
+    wide.copy_from_slice(&tag);
+    Scalar::from_bytes_mod_order_wide(&wide)
 }
 
-pub fn verify(pk_x_bytes: &[u8; 32], r_bytes: &[u8; 32], s_bytes: &[u8; 32], extra: &[u8]) -> bool {
-    let Some(X) = CompressedEdwardsY(*pk_x_bytes).decompress() else { return false; };
-    let Some(R) = CompressedEdwardsY(*r_bytes).decompress() else { return false; };
-    let s = Scalar::from_canonical_bytes(*s_bytes)
-        .unwrap_or_else(|| Scalar::from_bytes_mod_order(*s_bytes));
-    let c = challenge(&R, extra);
-    (&G * &s) == (R + c * X)
+/// Generate a fresh 32-byte session nonce for transcript binding.
+pub fn gen_session_nonce() -> [u8; 32] {
+    let mut n = [0u8; 32];
+    fill(&mut n).expect("rng");
+    n
+}
+
+/// Schnorr++ prove.
+/// π = (R, s) where R = r·G, c = H(domain ‖ R ‖ session_nonce), s = r + c·sk mod ℓ
+///
+/// Uses Ristretto255 (prime-order, no cofactor) and hedged nonce derivation.
+pub fn prove(sk_x: &Scalar, session_nonce: &[u8]) -> ([u8; 32], [u8; 32]) {
+    let sk_bytes: [u8; 32] = sk_x.to_bytes();
+    let r = hedged_nonce(&sk_bytes);
+    let r_point = &G * &r;
+    let c = challenge(&r_point, session_nonce);
+    let s = r + c * sk_x;
+    (r_point.compress().to_bytes(), s.to_bytes())
+}
+
+/// Schnorr++ verify.
+/// Checks s·G == R + c·X, with canonical encoding validation (measure 7).
+pub fn verify(pk_bytes: &[u8; 32], r_bytes: &[u8; 32], s_bytes: &[u8; 32], session_nonce: &[u8]) -> bool {
+    // Ristretto canonical decoding — rejects non-canonical encodings (measure 7)
+    let Some(x_point) = CompressedRistretto(*pk_bytes).decompress() else { return false; };
+    let Some(r_point) = CompressedRistretto(*r_bytes).decompress() else { return false; };
+
+    // Canonical scalar — reject malleable inputs (measure 7)
+    let Some(s) = Option::<Scalar>::from(Scalar::from_canonical_bytes(*s_bytes)) else { return false; };
+
+    let c = challenge(&r_point, session_nonce);
+
+    // Constant-time equality check via Ristretto (measure 8)
+    (&G * &s) == (r_point + c * x_point)
 }
 
 pub fn parse_sk_hex(hex32: &str) -> anyhow::Result<Scalar> {
@@ -40,30 +82,55 @@ pub fn parse_sk_hex(hex32: &str) -> anyhow::Result<Scalar> {
     if b.len() != 32 { anyhow::bail!("secret must be 32 bytes hex"); }
     Ok(Scalar::from_bytes_mod_order(b.as_slice().try_into().unwrap()))
 }
+
 pub fn parse_pk_hex(hex32: &str) -> anyhow::Result<[u8; 32]> {
     let b = hex::decode(hex32.trim())?;
-    if b.len() != 32 { anyhow::bail!("public must be 32 bytes hex"); }
+    if b.len() != 32 { anyhow::bail!("public must be 32 bytes hex (Ristretto255 compressed)"); }
     Ok(b.as_slice().try_into().unwrap())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use getrandom::fill;
 
     #[test]
     fn prove_verify_roundtrip() {
-        let sk_hex = "852d598bbbf3a329d4366e0a592f520a33a36f398dd7a9793f4917f58daf3f09";
-        let pk_hex = "bb62278f97fb18e0e61918a7c0f9d77f0d9f0c90c326af6c16be6b71d3b73cb1";
-        let sk = parse_sk_hex(sk_hex).unwrap();
-        let pk = parse_pk_hex(pk_hex).unwrap();
+        // Generate random key pair using Ristretto255
+        let mut seed = [0u8; 32];
+        fill(&mut seed).expect("rng");
+        let sk = Scalar::from_bytes_mod_order(seed);
+        let pk: [u8; 32] = (&G * &sk).compress().to_bytes();
 
-        // verify PK matches SK
-        let computed_pk = (&G * &sk).compress().to_bytes();
-        assert_eq!(computed_pk, pk, "PK does not match SK!");
+        let session_nonce = gen_session_nonce();
+        let (r, s) = prove(&sk, &session_nonce);
+        assert!(verify(&pk, &r, &s, &session_nonce), "verify should succeed");
+    }
 
-        // prove/verify
-        let (r, s) = prove(&sk, b"");
-        assert!(verify(&pk, &r, &s, b""), "verify failed!");
+    #[test]
+    fn wrong_nonce_fails() {
+        let mut seed = [0u8; 32];
+        fill(&mut seed).expect("rng");
+        let sk = Scalar::from_bytes_mod_order(seed);
+        let pk: [u8; 32] = (&G * &sk).compress().to_bytes();
+
+        let nonce1 = gen_session_nonce();
+        let nonce2 = gen_session_nonce();
+        let (r, s) = prove(&sk, &nonce1);
+        assert!(!verify(&pk, &r, &s, &nonce2), "wrong nonce must fail");
+    }
+
+    #[test]
+    fn wrong_key_fails() {
+        let mut seed1 = [0u8; 32];
+        let mut seed2 = [0u8; 32];
+        fill(&mut seed1).expect("rng");
+        fill(&mut seed2).expect("rng");
+        let sk1 = Scalar::from_bytes_mod_order(seed1);
+        let sk2 = Scalar::from_bytes_mod_order(seed2);
+        let pk2: [u8; 32] = (&G * &sk2).compress().to_bytes();
+
+        let nonce = gen_session_nonce();
+        let (r, s) = prove(&sk1, &nonce);
+        assert!(!verify(&pk2, &r, &s, &nonce), "wrong key must fail");
     }
 }

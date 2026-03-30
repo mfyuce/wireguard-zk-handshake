@@ -25,10 +25,11 @@ void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
 /* Alias handler for SET_VERIFY (same payload as old VERIFY) */
 static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info);
 
-/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?} */
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?, SESSION_NONCE} */
 void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
                                 u32 sender_index, u32 token,
-                                const u8 r[32], const u8 s[32]);
+                                const u8 r[32], const u8 s[32],
+                                const u8 nonce[32]);
 
 
 
@@ -40,6 +41,10 @@ extern struct zk_pending_entry *zk_pending_take(u32 sender_index);
 void wgzk_multicast_need_proof(struct net *netns, u32 ifindex,
                                u64 peer_id, const u8 *peer_pub, u32 token,
                                const u8 r[32], const u8 s[32]);
+void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
+                                u32 sender_index, u32 token,
+                                const u8 r[32], const u8 s[32],
+                                const u8 nonce[32]);
 
 
 extern struct hlist_head zk_pending_table[];
@@ -57,8 +62,9 @@ enum {
     WGZK_ATTR_R,         /* NLA_BINARY, len=32 */
     WGZK_ATTR_S,         /* NLA_BINARY, len=32 */
     WGZK_ATTR_IFINDEX,   /* u32: netdev ifindex (initiator interface) */
-    WGZK_ATTR_PEER_PUB,  /* bin[32]: optional, remote static pk */
-    WGZK_ATTR_TOKEN,     /* u32: optional correlation */
+    WGZK_ATTR_PEER_PUB,      /* bin[32]: optional, remote static pk */
+    WGZK_ATTR_TOKEN,         /* u32: optional correlation */
+    WGZK_ATTR_SESSION_NONCE, /* bin[32]: Schnorr++ transcript nonce */
 	__WGZK_ATTR_MAX,
 };
 #define WGZK_ATTR_MAX (__WGZK_ATTR_MAX - 1)
@@ -87,8 +93,9 @@ static const struct nla_policy wgzk_genl_policy[WGZK_ATTR_MAX + 1] = {
     [WGZK_ATTR_R]          = { .type = NLA_BINARY, .len = 32 },
     [WGZK_ATTR_S]          = { .type = NLA_BINARY, .len = 32 },
     [WGZK_ATTR_IFINDEX]    = { .type = NLA_U32 },
-    [WGZK_ATTR_PEER_PUB]   = { .type = NLA_BINARY, .len = 32 },
-    [WGZK_ATTR_TOKEN]      = { .type = NLA_U32 },
+    [WGZK_ATTR_PEER_PUB]      = { .type = NLA_BINARY, .len = 32 },
+    [WGZK_ATTR_TOKEN]         = { .type = NLA_U32 },
+    [WGZK_ATTR_SESSION_NONCE] = { .type = NLA_BINARY, .len = 32 },
 };
 
 /* === Define one multicast group === */
@@ -236,11 +243,17 @@ static int wgzk_set_proof_handler(struct sk_buff *skb, struct genl_info *info)
     const u8 *r      = nla_data(info->attrs[WGZK_ATTR_R]);
     const u8 *s      = nla_data(info->attrs[WGZK_ATTR_S]);
     u32 ifindex      = nla_get_u32(info->attrs[WGZK_ATTR_IFINDEX]);
-    pr_info("WG-ZK: SET_PROOF peer_id=%llu r[0]=%02x s[0]=%02x\n",
-            (unsigned long long)peer_id, r[0], s[0]);
 
+    /* Schnorr++: extract session nonce (zero if absent for backwards compat) */
+    u8 nonce[32] = {0};
+    if (info->attrs[WGZK_ATTR_SESSION_NONCE] &&
+        nla_len(info->attrs[WGZK_ATTR_SESSION_NONCE]) == 32)
+        memcpy(nonce, nla_data(info->attrs[WGZK_ATTR_SESSION_NONCE]), 32);
 
-    zk_proof_set(peer_id, r, s);
+    pr_info("WG-ZK: SET_PROOF peer_id=%llu r[0]=%02x s[0]=%02x nonce[0]=%02x\n",
+            (unsigned long long)peer_id, r[0], s[0], nonce[0]);
+
+    zk_proof_set(peer_id, r, s, nonce);
     pr_info("WG-ZK: cached proof for peer_id=%llu\n",
             (unsigned long long)peer_id);
 //    /* Optional: try to re-send initiation proactively */
@@ -317,10 +330,11 @@ static int wgzk_set_verify_handler(struct sk_buff *skb, struct genl_info *info)
     return wgzk_verify_handler(skb, info);
 }
 
-/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?} */
+/* Multicast NEED_VERIFY: {IFINDEX, PEER_INDEX, R, S, TOKEN?, SESSION_NONCE} */
 void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
                                 u32 sender_index, u32 token,
-                                const u8 r[32], const u8 s[32])
+                                const u8 r[32], const u8 s[32],
+                                const u8 nonce[32])
 {
     struct sk_buff *skb;
     void *hdr;
@@ -341,7 +355,8 @@ void wgzk_multicast_need_verify(struct net *netns, u32 ifindex,
         nla_put_u32(skb, WGZK_ATTR_PEER_INDEX, sender_index) ||
         nla_put(skb, WGZK_ATTR_R, 32, r) ||
         nla_put(skb, WGZK_ATTR_S, 32, s) ||
-        (token && nla_put_u32(skb, WGZK_ATTR_TOKEN, token))) {
+        (token && nla_put_u32(skb, WGZK_ATTR_TOKEN, token)) ||
+        (nonce && nla_put(skb, WGZK_ATTR_SESSION_NONCE, 32, nonce))) {
         genlmsg_cancel(skb, hdr);
         nlmsg_free(skb);
         return;

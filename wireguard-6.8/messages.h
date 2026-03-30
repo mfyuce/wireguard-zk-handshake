@@ -94,10 +94,11 @@ struct message_handshake_initiation_zk {
     u8 unencrypted_ephemeral[NOISE_PUBLIC_KEY_LEN];     // offset 8,  32 bytes
     u8 encrypted_static[noise_encrypted_len(NOISE_PUBLIC_KEY_LEN)];   // offset 40, 48 bytes
     u8 encrypted_timestamp[noise_encrypted_len(NOISE_TIMESTAMP_LEN)]; // offset 88, 28 bytes
-    u8 zk_r[NOISE_PUBLIC_KEY_LEN];                      // offset 116, 32 bytes
-    u8 zk_s[NOISE_PUBLIC_KEY_LEN];                      // offset 148, 32 bytes
-    struct message_macs macs;                           // offset 180, 32 bytes
-} __packed;                                             // Total: 212 bytes
+    u8 zk_r[NOISE_PUBLIC_KEY_LEN];                      // offset 116, 32 bytes  (Ristretto255 R)
+    u8 zk_s[NOISE_PUBLIC_KEY_LEN];                      // offset 148, 32 bytes  (Schnorr scalar s)
+    u8 zk_nonce[32];                                    // offset 180, 32 bytes  (session nonce, transcript binding)
+    struct message_macs macs;                           // offset 212, 32 bytes
+} __packed;                                             // Total: 244 bytes
 
 static inline bool wgzk_is_zk_initiation_len(size_t len)
 {

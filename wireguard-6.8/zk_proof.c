@@ -10,13 +10,14 @@ struct zk_proof_entry {
     u64 peer_id;
     u8  r[32];
     u8  s[32];
+    u8  nonce[32]; /* Schnorr++: session nonce for transcript binding */
     struct hlist_node node;
 };
 
 static DEFINE_HASHTABLE(zk_proof_table, ZK_PROOF_BITS);
 static DEFINE_SPINLOCK(zk_proof_lock);
 
-void zk_proof_set(u64 peer_id, const u8 r[32], const u8 s[32])
+void zk_proof_set(u64 peer_id, const u8 r[32], const u8 s[32], const u8 nonce[32])
 {
     struct zk_proof_entry *e;
     unsigned long flags;
@@ -26,6 +27,7 @@ void zk_proof_set(u64 peer_id, const u8 r[32], const u8 s[32])
         if (e->peer_id == peer_id) {
             memcpy(e->r, r, 32);
             memcpy(e->s, s, 32);
+            memcpy(e->nonce, nonce, 32);
             spin_unlock_irqrestore(&zk_proof_lock, flags);
             return;
         }
@@ -35,12 +37,13 @@ void zk_proof_set(u64 peer_id, const u8 r[32], const u8 s[32])
         e->peer_id = peer_id;
         memcpy(e->r, r, 32);
         memcpy(e->s, s, 32);
+        memcpy(e->nonce, nonce, 32);
         hash_add(zk_proof_table, &e->node, peer_id);
     }
     spin_unlock_irqrestore(&zk_proof_lock, flags);
 }
 
-bool zk_proof_get_and_clear(u64 peer_id, u8 r[32], u8 s[32])
+bool zk_proof_get_and_clear(u64 peer_id, u8 r[32], u8 s[32], u8 nonce[32])
 {
     struct zk_proof_entry *e;
     bool ok = false;
@@ -51,6 +54,7 @@ bool zk_proof_get_and_clear(u64 peer_id, u8 r[32], u8 s[32])
         if (e->peer_id == peer_id) {
             memcpy(r, e->r, 32);
             memcpy(s, e->s, 32);
+            memcpy(nonce, e->nonce, 32);
             hash_del(&e->node);
             kfree(e);
             ok = true;
