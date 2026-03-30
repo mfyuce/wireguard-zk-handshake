@@ -8,7 +8,7 @@
 set -euo pipefail
 set -x
 # ---------- EDIT THESE ----------
-PEER_ENDPOINT="10.0.2.7:51921"   # RIGHT VM's reachable underlay IP:port (UDP)
+PEER_ENDPOINT="10.0.2.4:51921"   # RIGHT VM's reachable underlay IP:port (UDP)
 LISTEN_PORT=51821                  # LEFT WG listen port
 # --------------------------------
 
