@@ -14,3 +14,5 @@ target/**
 Cargo.lock
 vagrant/keys/
 .vagrant/
+vagrant/wgzk-base.box
+vagrant/build-base/.vagrant/

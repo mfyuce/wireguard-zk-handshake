@@ -1,0 +1,28 @@
+# -*- mode: ruby -*-
+# Builds the wgzk-base Vagrant box.
+# Run via:  cd vagrant/build-base && vagrant up && vagrant package --output ../wgzk-base.box
+#
+# This box contains:
+#   - Ubuntu 22.04 LTS
+#   - Kernel 6.8.0-59-generic (booted)
+#   - wireguard.ko pre-installed at /lib/modules/.../extra/
+#   - wg-zk-daemon binary at /usr/local/bin/wg-zk-daemon
+#   - gen-pk binary at /usr/local/bin/gen-pk
+#   - wireguard-tools, iproute2, iputils-ping
+
+Vagrant.configure("2") do |config|
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.synced_folder "../..", "/vagrant", type: "virtualbox"
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = 512
+    vb.cpus   = 1
+    vb.name   = "wgzk-base-builder"
+  end
+
+  # Step 1: install kernel, reboot
+  config.vm.provision "shell", path: "../01-install-kernel.sh", reboot: true
+
+  # Step 2: install module + binaries into the image
+  config.vm.provision "shell", path: "install-into-box.sh"
+end

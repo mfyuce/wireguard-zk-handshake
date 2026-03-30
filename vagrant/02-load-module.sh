@@ -1,44 +1,34 @@
 #!/bin/bash
-# Load the pre-built wireguard.ko (compiled on host for 6.8.0-59-generic).
+# Load the pre-installed wireguard.ko (baked into the base box).
 set -euo pipefail
 
 KERNEL="6.8.0-59-generic"
-KO="/vagrant/wireguard-6.8/wireguard.ko"
+KO="/lib/modules/${KERNEL}/extra/wireguard.ko"
 
 echo "==> Kernel: $(uname -r)"
 if [ "$(uname -r)" != "$KERNEL" ]; then
     echo "ERROR: expected kernel $KERNEL but running $(uname -r)"
-    echo "       The pre-built wireguard.ko will not load on a different kernel."
+    echo "       Re-build the base box: cd vagrant && bash build-base.sh"
     exit 1
 fi
 
-if [ ! -f "$KO" ]; then
-    echo "ERROR: $KO not found."
-    echo "       Build it on the host first:"
-    echo "         cd wireguard-6.8"
-    echo "         make -C /lib/modules/${KERNEL}/build M=\$(pwd) modules"
-    exit 1
-fi
+[ -f "$KO" ] || { echo "ERROR: $KO not found — base box not built correctly"; exit 1; }
 
-# Remove stock wireguard if loaded
+# Remove stock wireguard if present
 rmmod wireguard 2>/dev/null || true
 
-# Load dependencies (order matters)
+# Load dependencies (order matters — same as README)
 for mod in libchacha20poly1305 libcurve25519 udp_tunnel ip6_udp_tunnel \
            curve25519-x86_64 libcurve25519-generic chacha20poly1305 \
            gcm aes_generic aesni_intel af_alg; do
     modprobe "$mod" 2>/dev/null || true
 done
 
-# Install and load our module
-install -D -m 644 "$KO" /lib/modules/${KERNEL}/extra/wireguard.ko
-insmod /lib/modules/${KERNEL}/extra/wireguard.ko
+insmod "$KO"
 
-# Verify wgzk genl family is registered
 if grep -q wgzk /proc/net/genetlink; then
-    echo "==> wireguard.ko loaded OK — wgzk genl family registered"
-    grep wgzk /proc/net/genetlink
+    echo "==> wireguard.ko loaded OK — wgzk genl registered"
 else
-    echo "ERROR: wireguard.ko loaded but wgzk genl family not found in /proc/net/genetlink"
+    echo "ERROR: wgzk genl family not found after insmod"
     exit 1
 fi
