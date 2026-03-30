@@ -5,16 +5,14 @@
 # This box contains:
 #   - Ubuntu 22.04 LTS
 #   - Kernel 6.8.0-59-generic (booted)
-#   - wireguard.ko pre-installed at /lib/modules/.../extra/
-#   - wg-zk-daemon binary at /usr/local/bin/wg-zk-daemon
-#   - gen-pk binary at /usr/local/bin/gen-pk
 #   - wireguard-tools, iproute2, iputils-ping
+# wireguard.ko and daemon are NOT baked in — copied from host at each vagrant up.
 
 Vagrant.configure("2") do |config|
   config.vm.box = "ubuntu/jammy64"
   config.vm.synced_folder "../..", "/vagrant", type: "virtualbox"
 
-  config.vm.provider "virtualbox" do |vb|
+  config.vm.provider :virtualbox do |vb|
     vb.memory = 512
     vb.cpus   = 1
     vb.name   = "wgzk-base-builder"

@@ -32,11 +32,18 @@ done
 
 # Install and load the fresh .ko from host
 install -D -m 644 "$KO_SRC" "$KO_DST"
-insmod "$KO_DST"
+insmod "$KO_DST" && echo "==> insmod OK" || { echo "ERROR: insmod failed"; dmesg | tail -10; exit 1; }
 
-if grep -q wgzk /proc/net/genetlink; then
+sleep 1
+
+echo "==> lsmod:"
+lsmod | grep wireguard || echo "(wireguard not in lsmod)"
+
+if grep -q wgzk /proc/net/genetlink 2>/dev/null || \
+   genl ctrl list 2>/dev/null | grep -q wgzk; then
     echo "==> wireguard.ko loaded OK — wgzk genl registered"
 else
-    echo "ERROR: wgzk genl family not found after insmod"
+    echo "ERROR: wgzk genl family not found"
+    dmesg | tail -20
     exit 1
 fi

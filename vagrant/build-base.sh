@@ -16,7 +16,7 @@ BOX_NAME="wgzk-base"
 echo "==> Building wgzk-base box..."
 cd "$BUILD_DIR"
 vagrant destroy -f 2>/dev/null || true
-vagrant up
+vagrant up --provider=virtualbox
 
 echo "==> Packaging box to $BOX_OUT ..."
 vagrant package --output "$BOX_OUT"

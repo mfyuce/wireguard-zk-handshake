@@ -6,11 +6,11 @@
 #        cd wireguard-6.8 && make -C /lib/modules/6.8.0-59-generic/build M=$(pwd) modules
 #        cd userspace/wg-zk-daemon && cargo build --release
 #        cd userspace/gen-pk && cargo build --release
-#   2. Build the base box (installs kernel 6.8.0-59-generic, bakes module+binaries):
+#   2. Build the base box (installs kernel 6.8.0-59-generic):
 #        cd vagrant && bash build-base.sh
 #
 # USAGE:
-#   vagrant up          # spins up gateway + client, sets up tunnel, runs ping test
+#   vagrant up          # generates keys, spins up gateway + client, runs ping test
 #   vagrant destroy -f  # tear everything down
 #
 # Network layout:
@@ -23,7 +23,6 @@ BASE_BOX   = "wgzk-base"
 
 Vagrant.configure("2") do |config|
   config.vm.box = BASE_BOX
-  # Synced folder: .ko and daemon are copied from host on each vagrant up
   config.vm.synced_folder ".", "/vagrant", type: "virtualbox"
 
   config.vm.provider "virtualbox" do |vb|
@@ -32,10 +31,16 @@ Vagrant.configure("2") do |config|
     vb.customize ["modifyvm", :id, "--nicpromisc2", "allow-all"]
   end
 
-  # Both VMs: load the pre-installed wireguard.ko on boot
+  # Generate all keys on HOST before any VM boots
+  config.trigger.before :up do |t|
+    t.name = "Generate WireGuard + ZK keys"
+    t.run  = { path: "vagrant/keygen.sh" }
+  end
+
+  # Both VMs: load wireguard.ko from host
   config.vm.provision "shell", path: "vagrant/02-load-module.sh"
 
-  # ── GATEWAY (RIGHT) ──────────────────────────────────────────────────────────
+  # ── GATEWAY ─────────────────────────────────────────────────────────────────
   config.vm.define "gateway", primary: true do |gw|
     gw.vm.hostname = "wgzk-gateway"
     gw.vm.network "private_network", ip: GATEWAY_IP,
@@ -44,7 +49,7 @@ Vagrant.configure("2") do |config|
                     env: { "PEER_IP" => CLIENT_IP }
   end
 
-  # ── CLIENT (LEFT) ────────────────────────────────────────────────────────────
+  # ── CLIENT ───────────────────────────────────────────────────────────────────
   config.vm.define "client" do |cl|
     cl.vm.hostname = "wgzk-client"
     cl.vm.network "private_network", ip: CLIENT_IP,
